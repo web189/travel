@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="id" data-theme="light">
 <head>
+
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CianjurTravel – Sewa Mobil Travel Terpercaya di Cianjur</title>
@@ -9,6 +11,9 @@
   <meta property="og:title" content="CianjurTravel – Sewa Mobil Travel Terpercaya" />
   <meta property="og:description" content="Layanan travel & sewa mobil terpercaya di Cianjur" />
   <meta property="og:type" content="website" />
+  
+  <link rel="icon" href="favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="favicon.png">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -40,25 +45,37 @@
       appId: "YOUR_APP_ID"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const storage = getStorage(app);
+    let app, auth, db, storage;
+    try {
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+      storage = getStorage(app);
 
-    // Expose to global scope
-    window._firebase = { auth, db, storage, collection, addDoc, getDocs, getDoc, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, onSnapshot, signInWithEmailAndPassword, signOut, onAuthStateChanged, ref, uploadBytes, getDownloadURL, deleteObject };
+      // Expose to global scope
+      window._firebase = { auth, db, storage, collection, addDoc, getDocs, getDoc, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, onSnapshot, signInWithEmailAndPassword, signOut, onAuthStateChanged, ref, uploadBytes, getDownloadURL, deleteObject };
+      window._firebaseReady = true;
 
-    // Auth state listener
-    onAuthStateChanged(auth, (user) => {
-      window._currentUser = user;
-      if (user) {
-        document.getElementById('admin-panel').style.display = 'flex';
-        document.getElementById('admin-login-modal').style.display = 'none';
-        window.loadAdminData();
-      } else {
-        document.getElementById('admin-panel').style.display = 'none';
-      }
-    });
+      // Auth state listener
+      onAuthStateChanged(auth, (user) => {
+        window._currentUser = user;
+        if (user) {
+          document.getElementById('admin-panel').style.display = 'flex';
+          document.getElementById('admin-login-modal').style.display = 'none';
+          if (window.loadAdminData) window.loadAdminData();
+        } else {
+          document.getElementById('admin-panel').style.display = 'none';
+        }
+      });
+    } catch(e) {
+      // Firebase config belum diisi – jalankan mode demo
+      window._firebase = null;
+      window._firebaseReady = false;
+      console.warn('Firebase tidak terkonfigurasi, berjalan dalam mode demo:', e.message);
+    }
+
+    // Beritahu app bahwa Firebase sudah siap (atau gagal)
+    window.dispatchEvent(new Event('firebaseReady'));
   </script>
 
   <style>
@@ -1697,7 +1714,7 @@ document.getElementById('logo-click-target').addEventListener('click', () => {
   if (logoClickCount >= 5) {
     logoClickCount = 0;
     if (!window._currentUser) {
-      document.getElementById('admin-login-modal').style.display = 'flex';
+      openModal('admin-login-modal');
     }
   }
 });
@@ -1706,14 +1723,23 @@ document.getElementById('logo-click-target').addEventListener('click', () => {
 // MODAL HELPERS
 // ============================================
 function openModal(id) {
-  document.getElementById(id).style.display = 'flex';
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = 'flex';
+  el.classList.add('active');
 }
 function closeModal(id) {
-  document.getElementById(id).style.display = 'none';
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = 'none';
+  el.classList.remove('active');
 }
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.style.display = 'none';
+    if (e.target === overlay) {
+      overlay.style.display = 'none';
+      overlay.classList.remove('active');
+    }
   });
 });
 
@@ -1758,13 +1784,13 @@ function generateTxId() {
 async function loadVehicles() {
   const grid = document.getElementById('vehicles-grid');
   try {
+    if (!window._firebase) throw new Error('no firebase');
     const { db, collection, getDocs } = window._firebase;
     const snap = await getDocs(collection(db, 'vehicles'));
     allVehicles = [];
     snap.forEach(d => allVehicles.push({ id: d.id, ...d.data() }));
 
     if (allVehicles.length === 0) {
-      // Seed demo data
       allVehicles = getDemoVehicles();
     }
     renderVehicles(allVehicles);
@@ -1839,6 +1865,7 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
 // ============================================
 async function loadRoutes() {
   try {
+    if (!window._firebase) throw new Error('no firebase');
     const { db, collection, getDocs } = window._firebase;
     const snap = await getDocs(collection(db, 'routes'));
     allRoutes = [];
@@ -1982,25 +2009,39 @@ async function submitBooking() {
 
   showLoading();
   try {
-    const { db, collection, addDoc, serverTimestamp } = window._firebase;
-    await addDoc(collection(db, 'bookings'), {
-      ...bookingData,
-      server_time: serverTimestamp()
-    });
+    if (window._firebase && window._firebaseReady) {
+      const { db, collection, addDoc, serverTimestamp } = window._firebase;
+      // Beri timeout 8 detik agar tidak loading selamanya jika Firebase lambat
+      const savePromise = addDoc(collection(db, 'bookings'), {
+        ...bookingData,
+        server_time: serverTimestamp()
+      });
+      await Promise.race([
+        savePromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+      ]);
+      showToast('Booking berhasil! Silakan cek struk Anda.', 'success');
+    } else {
+      // Mode demo: simpan ke local state
+      allBookings.unshift({ id: txId, ...bookingData });
+      showToast('Booking diterima! (Mode demo)', 'success');
+    }
     currentBookingData = bookingData;
-    hideLoading();
     closeModal('booking-modal');
     showStruk(bookingData);
-    showToast('Booking berhasil! Silakan cek struk Anda.', 'success');
     resetBookingForm();
   } catch(e) {
-    // Even if Firebase fails, show the receipt
+    console.warn('Firebase gagal, fallback mode demo:', e.message);
+    // Tetap tampilkan struk meskipun Firebase gagal
     currentBookingData = bookingData;
-    hideLoading();
+    allBookings.unshift({ id: txId, ...bookingData });
     closeModal('booking-modal');
     showStruk(bookingData);
     showToast('Booking diterima! (Mode demo)', 'success');
     resetBookingForm();
+  } finally {
+    // Pastikan loading SELALU dihilangkan
+    hideLoading();
   }
 }
 
@@ -2019,7 +2060,10 @@ function showStruk(data) {
   document.getElementById('struk-vehicle').textContent = data.kendaraan_nama;
   document.getElementById('struk-route').textContent = data.rute;
   document.getElementById('struk-distance').textContent = data.jarak + ' km';
-  document.getElementById('struk-date').textContent = new Date(data.tanggal).toLocaleDateString('id-ID', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  // Fix: parse tanggal sebagai local date, bukan UTC (hindari off-by-one timezone)
+  const [y, m, d] = data.tanggal.split('-').map(Number);
+  const tanggalLocal = new Date(y, m - 1, d);
+  document.getElementById('struk-date').textContent = tanggalLocal.toLocaleDateString('id-ID', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
   document.getElementById('struk-time').textContent = data.jam + ' WIB';
   document.getElementById('struk-pax').textContent = data.pax + ' orang';
   document.getElementById('struk-total').textContent = formatRp(data.total_harga);
@@ -2108,18 +2152,29 @@ async function adminLogin() {
   const password = document.getElementById('admin-password').value;
   if (!email || !password) { showToast('Isi email dan password!', 'error'); return; }
 
+  if (!window._firebase) {
+    showToast('Firebase belum dikonfigurasi. Isi firebaseConfig terlebih dahulu.', 'error');
+    return;
+  }
+
   showLoading();
   try {
     const { auth, signInWithEmailAndPassword } = window._firebase;
     await signInWithEmailAndPassword(auth, email, password);
     showToast('Login berhasil!', 'success');
+    closeModal('admin-login-modal');
   } catch(e) {
     showToast('Login gagal: ' + (e.message || 'Coba lagi'), 'error');
+  } finally {
+    hideLoading();
   }
-  hideLoading();
 }
 
 async function adminLogout() {
+  if (!window._firebase) {
+    document.getElementById('admin-panel').style.display = 'none';
+    return;
+  }
   const { auth, signOut } = window._firebase;
   await signOut(auth);
   document.getElementById('admin-panel').style.display = 'none';
@@ -2146,6 +2201,7 @@ window.loadAdminData = async function() {
 
 async function loadAdminVehicles() {
   try {
+    if (!window._firebase) throw new Error('no firebase');
     const { db, collection, getDocs } = window._firebase;
     const snap = await getDocs(collection(db, 'vehicles'));
     allVehicles = [];
@@ -2157,6 +2213,7 @@ async function loadAdminVehicles() {
 
 async function loadAdminRoutes() {
   try {
+    if (!window._firebase) throw new Error('no firebase');
     const { db, collection, getDocs } = window._firebase;
     const snap = await getDocs(collection(db, 'routes'));
     allRoutes = [];
@@ -2168,12 +2225,13 @@ async function loadAdminRoutes() {
 
 async function loadAdminBookings() {
   try {
+    if (!window._firebase) throw new Error('no firebase');
     const { db, collection, getDocs, query, orderBy } = window._firebase;
     const q = query(collection(db, 'bookings'), orderBy('created_at', 'desc'));
     const snap = await getDocs(q);
     allBookings = [];
     snap.forEach(d => allBookings.push({ id: d.id, ...d.data() }));
-  } catch(e) { allBookings = []; }
+  } catch(e) { /* allBookings tetap seperti sekarang */ }
   renderAdminBookings();
   renderRecentBookings();
 }
@@ -2289,8 +2347,10 @@ function renderRecentBookings() {
 // ============================================
 async function updateBookingStatus(bookingId, status) {
   try {
-    const { db, doc, updateDoc } = window._firebase;
-    await updateDoc(doc(db, 'bookings', bookingId), { status });
+    if (window._firebase) {
+      const { db, doc, updateDoc } = window._firebase;
+      await updateDoc(doc(db, 'bookings', bookingId), { status });
+    }
     const idx = allBookings.findIndex(b => b.id === bookingId);
     if (idx !== -1) allBookings[idx].status = status;
     showToast('Status booking diperbarui', 'success');
@@ -2342,30 +2402,40 @@ async function saveVehicle() {
   try {
     let gambarUrl = '';
 
-    // Upload image if selected
-    if (fileInput.files[0]) {
+    if (fileInput.files[0] && window._firebase) {
       const { storage, ref, uploadBytes, getDownloadURL } = window._firebase;
       const storageRef = ref(storage, `vehicles/${Date.now()}_${fileInput.files[0].name}`);
       const snapshot = await uploadBytes(storageRef, fileInput.files[0]);
       gambarUrl = await getDownloadURL(snapshot.ref);
     } else if (editId) {
-      // Keep existing image
       const existing = allVehicles.find(v => v.id === editId);
       gambarUrl = existing?.gambar || '';
     }
 
     const data = { nama, kapasitas: parseInt(kapasitas), harga_per_km: parseInt(harga), tipe, desc, gambar: gambarUrl };
 
-    const { db, collection, addDoc, doc, updateDoc } = window._firebase;
-    if (editId) {
-      await updateDoc(doc(db, 'vehicles', editId), data);
-      const idx = allVehicles.findIndex(v => v.id === editId);
-      if (idx !== -1) allVehicles[idx] = { id: editId, ...data };
-      showToast('Kendaraan berhasil diperbarui!', 'success');
+    if (window._firebase) {
+      const { db, collection, addDoc, doc, updateDoc } = window._firebase;
+      if (editId) {
+        await updateDoc(doc(db, 'vehicles', editId), data);
+        const idx = allVehicles.findIndex(v => v.id === editId);
+        if (idx !== -1) allVehicles[idx] = { id: editId, ...data };
+        showToast('Kendaraan berhasil diperbarui!', 'success');
+      } else {
+        const docRef = await addDoc(collection(db, 'vehicles'), data);
+        allVehicles.push({ id: docRef.id, ...data });
+        showToast('Kendaraan berhasil ditambahkan!', 'success');
+      }
     } else {
-      const docRef = await addDoc(collection(db, 'vehicles'), data);
-      allVehicles.push({ id: docRef.id, ...data });
-      showToast('Kendaraan berhasil ditambahkan!', 'success');
+      // Mode demo
+      const demoData = { id: editId || `demo_${Date.now()}`, ...data };
+      if (editId) {
+        const idx = allVehicles.findIndex(v => v.id === editId);
+        if (idx !== -1) allVehicles[idx] = demoData;
+      } else {
+        allVehicles.push(demoData);
+      }
+      showToast('Kendaraan disimpan (mode demo)', 'success');
     }
 
     closeModal('admin-vehicle-modal');
@@ -2373,7 +2443,6 @@ async function saveVehicle() {
     renderVehicles(allVehicles);
     updateDashboardStats();
   } catch(e) {
-    // Demo mode
     const demoData = { id: `demo_${Date.now()}`, nama, kapasitas: parseInt(kapasitas), harga_per_km: parseInt(harga), tipe, desc, gambar: '' };
     if (editId) {
       const idx = allVehicles.findIndex(v => v.id === editId);
@@ -2383,23 +2452,28 @@ async function saveVehicle() {
     renderAdminVehicles();
     renderVehicles(allVehicles);
     showToast('Kendaraan disimpan (mode demo)', 'success');
+  } finally {
+    hideLoading();
   }
-  hideLoading();
 }
 
 async function deleteVehicle(id) {
   if (!confirm('Hapus kendaraan ini?')) return;
   showLoading();
   try {
-    const { db, doc, deleteDoc } = window._firebase;
-    await deleteDoc(doc(db, 'vehicles', id));
+    if (window._firebase) {
+      const { db, doc, deleteDoc } = window._firebase;
+      await deleteDoc(doc(db, 'vehicles', id));
+    }
     showToast('Kendaraan dihapus!', 'success');
   } catch(e) { showToast('Dihapus (mode demo)', 'success'); }
-  allVehicles = allVehicles.filter(v => v.id !== id);
-  renderAdminVehicles();
-  renderVehicles(allVehicles);
-  updateDashboardStats();
-  hideLoading();
+  finally {
+    allVehicles = allVehicles.filter(v => v.id !== id);
+    renderAdminVehicles();
+    renderVehicles(allVehicles);
+    updateDashboardStats();
+    hideLoading();
+  }
 }
 
 // ============================================
@@ -2433,16 +2507,24 @@ async function saveRoute() {
   showLoading();
   const data = { nama_rute: nama, jarak: parseInt(jarak), harga: harga ? parseInt(harga) : 0 };
   try {
-    const { db, collection, addDoc, doc, updateDoc } = window._firebase;
-    if (editId) {
-      await updateDoc(doc(db, 'routes', editId), data);
-      const idx = allRoutes.findIndex(r => r.id === editId);
-      if (idx !== -1) allRoutes[idx] = { id: editId, ...data };
-      showToast('Rute diperbarui!', 'success');
+    if (window._firebase) {
+      const { db, collection, addDoc, doc, updateDoc } = window._firebase;
+      if (editId) {
+        await updateDoc(doc(db, 'routes', editId), data);
+        const idx = allRoutes.findIndex(r => r.id === editId);
+        if (idx !== -1) allRoutes[idx] = { id: editId, ...data };
+        showToast('Rute diperbarui!', 'success');
+      } else {
+        const docRef = await addDoc(collection(db, 'routes'), data);
+        allRoutes.push({ id: docRef.id, ...data });
+        showToast('Rute ditambahkan!', 'success');
+      }
     } else {
-      const docRef = await addDoc(collection(db, 'routes'), data);
-      allRoutes.push({ id: docRef.id, ...data });
-      showToast('Rute ditambahkan!', 'success');
+      if (editId) {
+        const idx = allRoutes.findIndex(r => r.id === editId);
+        if (idx !== -1) allRoutes[idx] = { id: editId, ...data };
+      } else { allRoutes.push({ id: `r_${Date.now()}`, ...data }); }
+      showToast('Rute disimpan (mode demo)', 'success');
     }
   } catch(e) {
     if (editId) {
@@ -2450,27 +2532,32 @@ async function saveRoute() {
       if (idx !== -1) allRoutes[idx] = { id: editId, ...data };
     } else { allRoutes.push({ id: `r_${Date.now()}`, ...data }); }
     showToast('Rute disimpan (mode demo)', 'success');
+  } finally {
+    closeModal('admin-route-modal');
+    renderAdminRoutes();
+    renderRoutes(allRoutes);
+    populateRouteDropdown(allRoutes);
+    updateDashboardStats();
+    hideLoading();
   }
-  closeModal('admin-route-modal');
-  renderAdminRoutes();
-  renderRoutes(allRoutes);
-  populateRouteDropdown(allRoutes);
-  updateDashboardStats();
-  hideLoading();
 }
 
 async function deleteRoute(id) {
   if (!confirm('Hapus rute ini?')) return;
   showLoading();
   try {
-    const { db, doc, deleteDoc } = window._firebase;
-    await deleteDoc(doc(db, 'routes', id));
+    if (window._firebase) {
+      const { db, doc, deleteDoc } = window._firebase;
+      await deleteDoc(doc(db, 'routes', id));
+    }
     showToast('Rute dihapus!', 'success');
   } catch(e) { showToast('Dihapus (mode demo)', 'success'); }
-  allRoutes = allRoutes.filter(r => r.id !== id);
-  renderAdminRoutes(); renderRoutes(allRoutes); populateRouteDropdown(allRoutes);
-  updateDashboardStats();
-  hideLoading();
+  finally {
+    allRoutes = allRoutes.filter(r => r.id !== id);
+    renderAdminRoutes(); renderRoutes(allRoutes); populateRouteDropdown(allRoutes);
+    updateDashboardStats();
+    hideLoading();
+  }
 }
 
 // ============================================
@@ -2491,12 +2578,23 @@ function previewImage(input) {
 // ============================================
 // INIT
 // ============================================
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    loadVehicles();
-    loadRoutes();
-  }, 500);
-});
+// INIT - Tunggu Firebase module siap
+// ============================================
+function initApp() {
+  loadVehicles();
+  loadRoutes();
+}
+
+window.addEventListener('firebaseReady', initApp, { once: true });
+
+// Fallback: jika event tidak datang dalam 4 detik, jalankan mode demo
+setTimeout(() => {
+  if (!window._firebase && window._firebaseReady === undefined) {
+    window._firebase = null;
+    window._firebaseReady = false;
+    initApp();
+  }
+}, 4000);
 
 // Intersection Observer for animations
 const observer = new IntersectionObserver((entries) => {

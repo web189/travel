@@ -516,6 +516,12 @@
     }
     .modal-overlay.active { display: flex; }
 
+    /* Admin modals harus di atas admin-panel (z-index: 3000) */
+    #admin-vehicle-modal,
+    #admin-route-modal {
+      z-index: 9000;
+    }
+
     .modal {
       background: var(--bg-card);
       border-radius: 24px;
@@ -964,7 +970,7 @@
     ================================ */
     .loading-overlay {
       display: none;
-      position: fixed; inset: 0; z-index: 9998;
+      position: fixed; inset: 0; z-index: 9999;
       background: rgba(0,0,0,0.5);
       backdrop-filter: blur(4px);
       align-items: center; justify-content: center;
@@ -2119,6 +2125,7 @@ async function submitBooking() {
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
   }
 
+  // enableBtn didefinisikan di luar try/catch agar selalu tersedia di finally
   const enableBtn = () => {
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -2135,11 +2142,19 @@ async function submitBooking() {
       console.log('[submitBooking] Firebase siap, menyimpan ke Firestore koleksi "bookings"...');
       console.log('[submitBooking] Payload:', JSON.stringify(bookingData));
 
+      // Tambah timeout 15 detik agar loading tidak gantung selamanya
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout: Firestore tidak merespons dalam 15 detik. Periksa koneksi internet dan Firestore Rules.')), 15000)
+      );
+
       // Simpan ke Firestore — createdAt pakai serverTimestamp untuk real-time ordering
-      const docRef = await addDoc(collection(db, 'bookings'), {
-        ...bookingData,
-        createdAt: serverTimestamp()
-      });
+      const docRef = await Promise.race([
+        addDoc(collection(db, 'bookings'), {
+          ...bookingData,
+          createdAt: serverTimestamp()
+        }),
+        timeoutPromise
+      ]);
 
       console.log('[submitBooking] ✅ Booking BERHASIL tersimpan ke Firestore! Doc ID:', docRef.id);
       bookingData.firestore_id = docRef.id;
@@ -2175,6 +2190,8 @@ async function submitBooking() {
     let errMsg = 'Gagal menyimpan ke database.';
     if (e.code === 'permission-denied' || (e.message && e.message.includes('permission'))) {
       errMsg = '⛔ Permission denied! Buka Firebase Console → Firestore → Rules, lalu set: allow read, write: if true; untuk koleksi bookings.';
+    } else if (e.message && e.message.includes('Timeout')) {
+      errMsg = '⏱️ ' + e.message;
     } else if (e.message && e.message.includes('offline')) {
       errMsg = '📶 Tidak ada koneksi internet. Data disimpan sementara.';
     } else if (e.message) {

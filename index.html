@@ -1,0 +1,2520 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CianjurTravel – Sewa Mobil Travel Terpercaya di Cianjur</title>
+  <meta name="description" content="Sewa mobil travel terpercaya di Cianjur. Harga terjangkau, armada lengkap, driver profesional. Booking sekarang!" />
+  <meta name="keywords" content="sewa mobil cianjur, travel cianjur, rental mobil cianjur, angkutan travel cianjur" />
+  <meta property="og:title" content="CianjurTravel – Sewa Mobil Travel Terpercaya" />
+  <meta property="og:description" content="Layanan travel & sewa mobil terpercaya di Cianjur" />
+  <meta property="og:type" content="website" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <!-- HTML2Canvas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, getDoc, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+    // ============================
+    // 🔥 FIREBASE CONFIG
+    // Ganti dengan konfigurasi Firebase Anda!
+    // ============================
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    // Expose to global scope
+    window._firebase = { auth, db, storage, collection, addDoc, getDocs, getDoc, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, onSnapshot, signInWithEmailAndPassword, signOut, onAuthStateChanged, ref, uploadBytes, getDownloadURL, deleteObject };
+
+    // Auth state listener
+    onAuthStateChanged(auth, (user) => {
+      window._currentUser = user;
+      if (user) {
+        document.getElementById('admin-panel').style.display = 'flex';
+        document.getElementById('admin-login-modal').style.display = 'none';
+        window.loadAdminData();
+      } else {
+        document.getElementById('admin-panel').style.display = 'none';
+      }
+    });
+  </script>
+
+  <style>
+    /* ================================
+       CSS VARIABLES & RESET
+    ================================ */
+    :root {
+      --primary: #1B4FD8;
+      --primary-dark: #1438A8;
+      --primary-light: #3B72F6;
+      --primary-glow: rgba(27, 79, 216, 0.15);
+      --accent: #F59E0B;
+      --accent-light: #FCD34D;
+      --success: #10B981;
+      --danger: #EF4444;
+      --warning: #F59E0B;
+
+      --bg: #F8FAFF;
+      --bg-card: #FFFFFF;
+      --bg-secondary: #EEF2FF;
+      --bg-tertiary: #E8EEFF;
+      --border: #D8E2FF;
+      --border-light: #EEF2FF;
+
+      --text: #0F172A;
+      --text-secondary: #475569;
+      --text-muted: #94A3B8;
+      --text-on-primary: #FFFFFF;
+
+      --shadow-sm: 0 1px 3px rgba(27,79,216,0.08), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow: 0 4px 16px rgba(27,79,216,0.10), 0 2px 6px rgba(0,0,0,0.06);
+      --shadow-lg: 0 16px 48px rgba(27,79,216,0.15), 0 8px 24px rgba(0,0,0,0.08);
+      --shadow-xl: 0 24px 64px rgba(27,79,216,0.20);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --radius-xs: 6px;
+      --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
+      --font-head: 'Sora', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg: #080E1F;
+      --bg-card: #111827;
+      --bg-secondary: #162040;
+      --bg-tertiary: #1E2D55;
+      --border: #1E3370;
+      --border-light: #162040;
+      --text: #F0F6FF;
+      --text-secondary: #94B8D8;
+      --text-muted: #4A6490;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+      --shadow: 0 4px 16px rgba(0,0,0,0.5);
+      --shadow-lg: 0 16px 48px rgba(0,0,0,0.6);
+      --primary-glow: rgba(59, 114, 246, 0.2);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      transition: background var(--transition), color var(--transition);
+      overflow-x: hidden;
+    }
+
+    /* ================================
+       SCROLLBAR
+    ================================ */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; }
+
+    /* ================================
+       NAVBAR
+    ================================ */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      background: rgba(248,250,255,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 70px;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: background var(--transition);
+    }
+    [data-theme="dark"] .navbar { background: rgba(8,14,31,0.9); }
+
+    .navbar-brand {
+      display: flex; align-items: center; gap: 12px;
+      text-decoration: none;
+      cursor: pointer;
+      user-select: none;
+    }
+    .navbar-logo {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 14px rgba(27,79,216,0.35);
+      transition: transform var(--transition), box-shadow var(--transition);
+    }
+    .navbar-logo:active { transform: scale(0.93); }
+    .navbar-logo i { color: white; font-size: 20px; }
+    .navbar-text { font-family: var(--font-head); }
+    .navbar-title { font-size: 18px; font-weight: 700; color: var(--primary); line-height: 1.2; }
+    .navbar-sub { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+
+    .navbar-actions { display: flex; align-items: center; gap: 10px; }
+
+    .btn-dark-toggle {
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      transition: all var(--transition);
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-dark-toggle:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+    /* ================================
+       HERO SECTION
+    ================================ */
+    .hero {
+      min-height: 100vh;
+      padding-top: 70px;
+      background: linear-gradient(160deg, var(--bg) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
+      position: relative; overflow: hidden;
+      display: flex; align-items: center;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute; top: -30%; right: -20%;
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+      border-radius: 50%;
+      animation: floatBall 8s ease-in-out infinite;
+    }
+    .hero::after {
+      content: '';
+      position: absolute; bottom: -20%; left: -15%;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+    @keyframes floatBall { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-30px) scale(1.05)} }
+
+    .hero-container {
+      max-width: 1200px; margin: 0 auto; padding: 60px 24px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 60px;
+      align-items: center; position: relative; z-index: 1;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--primary-glow);
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      padding: 6px 14px;
+      border-radius: 100px;
+      font-size: 12px; font-weight: 600;
+      margin-bottom: 20px;
+      animation: fadeInUp 0.6s ease both;
+    }
+    .hero-badge span { width: 6px; height: 6px; background: var(--primary); border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.5)} }
+
+    .hero h1 {
+      font-family: var(--font-head);
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      font-weight: 800; line-height: 1.15;
+      color: var(--text);
+      margin-bottom: 20px;
+      animation: fadeInUp 0.7s ease both 0.1s;
+    }
+    .hero h1 .highlight {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 16px; color: var(--text-secondary); margin-bottom: 32px;
+      animation: fadeInUp 0.7s ease both 0.2s;
+      max-width: 440px;
+    }
+
+    .hero-stats {
+      display: flex; gap: 28px; margin-bottom: 32px;
+      animation: fadeInUp 0.7s ease both 0.3s;
+    }
+    .hero-stat { text-align: center; }
+    .hero-stat-num { font-family: var(--font-head); font-size: 28px; font-weight: 800; color: var(--primary); }
+    .hero-stat-label { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; animation: fadeInUp 0.7s ease both 0.4s; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 13px 24px;
+      border-radius: 12px;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer; border: none;
+      transition: all var(--transition);
+      text-decoration: none;
+      font-family: var(--font-body);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white;
+      box-shadow: 0 8px 24px rgba(27,79,216,0.35);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(27,79,216,0.45); }
+    .btn-outline {
+      background: transparent;
+      color: var(--primary);
+      border: 1.5px solid var(--primary);
+    }
+    .btn-outline:hover { background: var(--primary-glow); }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-danger:hover { background: #DC2626; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-sm { padding: 8px 16px; font-size: 13px; border-radius: 8px; }
+    .btn-lg { padding: 15px 30px; font-size: 16px; }
+
+    .hero-visual {
+      position: relative;
+      animation: fadeInRight 0.8s ease both 0.2s;
+    }
+    .hero-car-card {
+      background: var(--bg-card);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: var(--shadow-xl);
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-car-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 4px;
+      background: linear-gradient(90deg, var(--primary), var(--primary-light), var(--accent));
+    }
+    .hero-car-img {
+      width: 100%; height: 200px;
+      object-fit: cover;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 80px;
+      margin-bottom: 16px;
+    }
+    .hero-feature-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+    .feature-badge {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 11px; font-weight: 600;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .feature-badge.active { background: var(--primary-glow); border-color: var(--primary); color: var(--primary); }
+
+    /* ================================
+       SECTIONS
+    ================================ */
+    section { padding: 80px 24px; }
+    .section-header { text-align: center; margin-bottom: 52px; }
+    .section-tag {
+      display: inline-block;
+      background: var(--primary-glow);
+      color: var(--primary);
+      font-size: 12px; font-weight: 700;
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--primary);
+      margin-bottom: 14px;
+      letter-spacing: 0.5px;
+    }
+    .section-title {
+      font-family: var(--font-head);
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 800; color: var(--text);
+      margin-bottom: 12px;
+    }
+    .section-desc { color: var(--text-secondary); font-size: 15px; max-width: 500px; margin: 0 auto; }
+    .container { max-width: 1200px; margin: 0 auto; }
+
+    /* ================================
+       VEHICLES GRID
+    ================================ */
+    #vehicles { background: var(--bg); }
+
+    .vehicles-filter {
+      display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+      margin-bottom: 40px;
+    }
+    .filter-btn {
+      padding: 8px 20px;
+      border-radius: 100px;
+      border: 1.5px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .filter-btn.active, .filter-btn:hover {
+      background: var(--primary); border-color: var(--primary); color: white;
+    }
+
+    .vehicles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .vehicle-card {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: all var(--transition);
+      cursor: pointer;
+      animation: fadeInUp 0.5s ease both;
+    }
+    .vehicle-card:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--primary);
+    }
+    .vehicle-card-img {
+      width: 100%; height: 200px;
+      object-fit: cover;
+      background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 72px;
+      position: relative;
+    }
+    .vehicle-card-badge {
+      position: absolute; top: 12px; right: 12px;
+      background: var(--success);
+      color: white; font-size: 10px; font-weight: 700;
+      padding: 3px 10px; border-radius: 20px;
+    }
+    .vehicle-card-body { padding: 20px; }
+    .vehicle-card-name {
+      font-family: var(--font-head);
+      font-size: 16px; font-weight: 700;
+      color: var(--text); margin-bottom: 6px;
+    }
+    .vehicle-card-meta {
+      display: flex; gap: 14px; margin-bottom: 14px;
+    }
+    .vehicle-meta-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 12px; color: var(--text-muted); font-weight: 500;
+    }
+    .vehicle-meta-item i { color: var(--primary); }
+    .vehicle-card-price {
+      display: flex; align-items: baseline; gap: 4px;
+      margin-bottom: 16px;
+    }
+    .price-num {
+      font-family: var(--font-head);
+      font-size: 20px; font-weight: 800; color: var(--primary);
+    }
+    .price-unit { font-size: 12px; color: var(--text-muted); }
+    .vehicle-card-actions { display: flex; gap: 8px; }
+    .vehicle-card-actions .btn { flex: 1; justify-content: center; }
+
+    /* ================================
+       BOOKING MODAL
+    ================================ */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 2000;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+      align-items: center; justify-content: center;
+      padding: 20px;
+      animation: fadeIn 0.3s ease;
+    }
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: var(--bg-card);
+      border-radius: 24px;
+      padding: 32px;
+      width: 100%; max-width: 520px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow-xl);
+      border: 1px solid var(--border);
+      animation: slideUp 0.4s ease;
+      position: relative;
+    }
+    .modal.modal-lg { max-width: 680px; }
+    .modal.modal-xl { max-width: 900px; }
+
+    @keyframes slideUp { from{transform:translateY(40px);opacity:0} to{transform:translateY(0);opacity:1} }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    @keyframes fadeInUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+    @keyframes fadeInRight { from{transform:translateX(30px);opacity:0} to{transform:translateX(0);opacity:1} }
+
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .modal-title {
+      font-family: var(--font-head);
+      font-size: 20px; font-weight: 700; color: var(--text);
+    }
+    .modal-close {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition);
+      font-size: 16px;
+    }
+    .modal-close:hover { background: var(--danger); border-color: var(--danger); color: white; }
+
+    /* ================================
+       FORM ELEMENTS
+    ================================ */
+    .form-group { margin-bottom: 18px; }
+    .form-label {
+      display: block;
+      font-size: 13px; font-weight: 600; color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .form-control {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      font-family: var(--font-body);
+      transition: all var(--transition);
+      outline: none;
+    }
+    .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
+    .form-control::placeholder { color: var(--text-muted); }
+    select.form-control { cursor: pointer; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    /* ================================
+       BOOKING VEHICLE PREVIEW
+    ================================ */
+    .booking-vehicle-preview {
+      background: var(--bg-secondary);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex; gap: 16px; align-items: center;
+      margin-bottom: 24px;
+      border: 1px solid var(--border);
+    }
+    .booking-vehicle-thumb {
+      width: 80px; height: 60px;
+      border-radius: 10px;
+      background: var(--bg-tertiary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; flex-shrink: 0;
+      overflow: hidden;
+    }
+    .booking-vehicle-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .booking-vehicle-name { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--text); }
+    .booking-vehicle-cap { font-size: 12px; color: var(--text-muted); }
+
+    /* Price Summary */
+    .price-summary {
+      background: var(--primary-glow);
+      border: 1px solid var(--primary);
+      border-radius: 14px;
+      padding: 16px;
+      margin-top: 20px;
+    }
+    .price-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .price-row:last-child { margin-bottom: 0; border-top: 1px dashed var(--border); padding-top: 10px; }
+    .price-row.total .price-label { font-weight: 700; color: var(--text); font-size: 15px; }
+    .price-row.total .price-value { font-family: var(--font-head); font-size: 20px; font-weight: 800; color: var(--primary); }
+    .price-label { font-size: 13px; color: var(--text-secondary); }
+    .price-value { font-size: 14px; font-weight: 600; color: var(--text); }
+
+    /* ================================
+       STRUK / RECEIPT
+    ================================ */
+    #struk-modal .modal { max-width: 440px; }
+    .struk-wrap {
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .struk-header {
+      background: linear-gradient(135deg, #1B4FD8, #3B72F6);
+      padding: 24px;
+      text-align: center;
+      color: white;
+    }
+    .struk-logo { font-size: 32px; margin-bottom: 8px; }
+    .struk-company { font-family: var(--font-head); font-size: 20px; font-weight: 800; }
+    .struk-tagline { font-size: 11px; opacity: 0.8; }
+    .struk-body { padding: 24px; }
+    .struk-id {
+      text-align: center;
+      font-family: var(--font-head);
+      font-size: 13px;
+      color: #64748B;
+      margin-bottom: 16px;
+      background: #F1F5F9;
+      padding: 8px;
+      border-radius: 8px;
+    }
+    .struk-divider { border: none; border-top: 1px dashed #CBD5E1; margin: 14px 0; }
+    .struk-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+    .struk-label { font-size: 12px; color: #64748B; }
+    .struk-value { font-size: 13px; font-weight: 600; color: #0F172A; text-align: right; max-width: 55%; }
+    .struk-total-box {
+      background: linear-gradient(135deg, #EEF2FF, #E8EEFF);
+      border: 1.5px solid #1B4FD8;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      margin-top: 14px;
+    }
+    .struk-total-label { font-size: 11px; color: #64748B; margin-bottom: 4px; }
+    .struk-total-amount { font-family: var(--font-head); font-size: 26px; font-weight: 800; color: #1B4FD8; }
+    .struk-footer {
+      background: #F8FAFF;
+      padding: 16px;
+      text-align: center;
+      border-top: 1px solid #E2E8F0;
+    }
+    .struk-footer p { font-size: 11px; color: #94A3B8; }
+
+    .struk-actions { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+    .struk-actions .btn { flex: 1; justify-content: center; min-width: 100px; }
+
+    /* ================================
+       ROUTES SECTION
+    ================================ */
+    #routes { background: var(--bg-secondary); }
+    .routes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 16px;
+    }
+    .route-card {
+      background: var(--bg-card);
+      border-radius: 14px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      transition: all var(--transition);
+    }
+    .route-card:hover { border-color: var(--primary); transform: translateY(-3px); box-shadow: var(--shadow); }
+    .route-from-to {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 12px;
+    }
+    .route-city { font-family: var(--font-head); font-size: 14px; font-weight: 700; color: var(--text); }
+    .route-arrow { color: var(--primary); font-size: 18px; }
+    .route-details { display: flex; justify-content: space-between; }
+    .route-detail-item { text-align: center; }
+    .route-detail-val { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--primary); }
+    .route-detail-label { font-size: 10px; color: var(--text-muted); }
+
+    /* ================================
+       WHATSAPP / CHAT BOX
+    ================================ */
+    .floating-chat {
+      position: fixed; bottom: 24px; right: 24px; z-index: 1500;
+    }
+    .chat-toggle {
+      width: 56px; height: 56px;
+      background: #25D366;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 24px rgba(37,211,102,0.4);
+      transition: all var(--transition);
+      font-size: 24px; color: white;
+      position: relative;
+    }
+    .chat-toggle:hover { transform: scale(1.1); }
+    .chat-badge {
+      position: absolute; top: -4px; right: -4px;
+      width: 18px; height: 18px;
+      background: var(--danger);
+      border-radius: 50%;
+      font-size: 10px; color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+    }
+    .chat-window {
+      position: absolute; bottom: 70px; right: 0;
+      width: 320px;
+      background: var(--bg-card);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: var(--shadow-xl);
+      border: 1px solid var(--border);
+      display: none;
+      animation: slideUp 0.3s ease;
+    }
+    .chat-window.open { display: block; }
+    .chat-header {
+      background: #128C7E;
+      padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .chat-avatar {
+      width: 40px; height: 40px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .chat-header-info .chat-name { font-size: 14px; font-weight: 600; color: white; }
+    .chat-header-info .chat-status { font-size: 11px; color: rgba(255,255,255,0.8); }
+    .chat-body { padding: 16px; }
+    .chat-bubble {
+      background: #DCF8C6;
+      border-radius: 12px 12px 12px 2px;
+      padding: 10px 12px;
+      font-size: 13px;
+      margin-bottom: 10px;
+      max-width: 85%;
+      color: #0F172A;
+    }
+    .chat-input-area {
+      display: flex; gap: 8px; padding: 12px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .chat-input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      font-family: var(--font-body);
+      outline: none;
+    }
+    .chat-send {
+      width: 38px; height: 38px;
+      background: #25D366;
+      border: none; border-radius: 50%;
+      color: white; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition);
+    }
+    .chat-send:hover { background: #128C7E; }
+
+    /* ================================
+       ADMIN PANEL
+    ================================ */
+    #admin-panel {
+      display: none;
+      position: fixed; inset: 0; z-index: 3000;
+      background: var(--bg);
+      flex-direction: row;
+    }
+    .admin-sidebar {
+      width: 260px;
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      padding: 24px 0;
+      display: flex; flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .admin-brand {
+      padding: 0 24px 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .admin-brand-title { font-family: var(--font-head); font-size: 18px; font-weight: 800; color: var(--primary); }
+    .admin-brand-sub { font-size: 11px; color: var(--text-muted); }
+
+    .admin-nav-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 24px;
+      cursor: pointer;
+      font-size: 14px; font-weight: 500;
+      color: var(--text-secondary);
+      transition: all var(--transition);
+      border-left: 3px solid transparent;
+    }
+    .admin-nav-item:hover { background: var(--bg-secondary); color: var(--primary); }
+    .admin-nav-item.active { background: var(--primary-glow); color: var(--primary); border-left-color: var(--primary); font-weight: 600; }
+    .admin-nav-item i { width: 18px; text-align: center; font-size: 15px; }
+
+    .admin-logout {
+      margin-top: auto;
+      padding: 12px 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .admin-content { flex: 1; overflow-y: auto; padding: 32px; }
+    .admin-page { display: none; }
+    .admin-page.active { display: block; }
+    .admin-page-title {
+      font-family: var(--font-head);
+      font-size: 24px; font-weight: 800; color: var(--text);
+      margin-bottom: 8px;
+    }
+    .admin-page-desc { color: var(--text-muted); font-size: 14px; margin-bottom: 28px; }
+
+    .admin-stats {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px; margin-bottom: 28px;
+    }
+    .admin-stat-card {
+      background: var(--bg-card);
+      border-radius: 14px; padding: 20px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+    .admin-stat-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; margin-bottom: 12px;
+    }
+    .admin-stat-icon.blue { background: var(--primary-glow); color: var(--primary); }
+    .admin-stat-icon.green { background: rgba(16,185,129,0.1); color: var(--success); }
+    .admin-stat-icon.amber { background: rgba(245,158,11,0.1); color: var(--accent); }
+    .admin-stat-icon.red { background: rgba(239,68,68,0.1); color: var(--danger); }
+    .admin-stat-num { font-family: var(--font-head); font-size: 26px; font-weight: 800; color: var(--text); }
+    .admin-stat-label { font-size: 12px; color: var(--text-muted); }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      background: var(--bg-secondary);
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 12px; font-weight: 700; color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+    tbody td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-light);
+      font-size: 14px; color: var(--text);
+      vertical-align: middle;
+    }
+    tbody tr:hover { background: var(--bg-secondary); }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 700;
+    }
+    .status-pending { background: rgba(245,158,11,0.15); color: #B45309; }
+    .status-confirmed { background: rgba(16,185,129,0.15); color: #065F46; }
+    .status-cancelled { background: rgba(239,68,68,0.15); color: #B91C1C; }
+
+    /* Card in admin */
+    .admin-card {
+      background: var(--bg-card);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+    .admin-card-title {
+      font-family: var(--font-head);
+      font-size: 16px; font-weight: 700; color: var(--text);
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ================================
+       NOTIFICATIONS
+    ================================ */
+    .toast-container {
+      position: fixed; top: 90px; right: 20px; z-index: 9999;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .toast {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 14px 18px;
+      min-width: 260px;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+      animation: slideInRight 0.3s ease, fadeOut 0.3s ease 3.5s both;
+      border-left: 4px solid var(--primary);
+    }
+    .toast.success { border-left-color: var(--success); }
+    .toast.error { border-left-color: var(--danger); }
+    .toast-icon { font-size: 18px; }
+    .toast.success .toast-icon { color: var(--success); }
+    .toast.error .toast-icon { color: var(--danger); }
+    .toast-msg { font-size: 13px; font-weight: 500; color: var(--text); }
+    @keyframes slideInRight { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+    @keyframes fadeOut { from{opacity:1} to{opacity:0;transform:translateX(100%)} }
+
+    /* ================================
+       LOADING
+    ================================ */
+    .loading-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 9998;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(4px);
+      align-items: center; justify-content: center;
+    }
+    .loading-overlay.active { display: flex; }
+    .loading-spinner {
+      width: 60px; height: 60px;
+      border: 4px solid rgba(255,255,255,0.2);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    /* ================================
+       HOW IT WORKS
+    ================================ */
+    #how-it-works { background: var(--bg-secondary); }
+    .steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; }
+    .step-card {
+      text-align: center; padding: 32px 20px;
+      background: var(--bg-card);
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      position: relative;
+      transition: all var(--transition);
+    }
+    .step-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); }
+    .step-num {
+      position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white; border-radius: 50%;
+      font-family: var(--font-head); font-size: 13px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step-icon {
+      font-size: 48px; margin-bottom: 16px;
+      display: block;
+    }
+    .step-title { font-family: var(--font-head); font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .step-desc { font-size: 13px; color: var(--text-secondary); }
+
+    /* ================================
+       FOOTER
+    ================================ */
+    footer {
+      background: var(--text);
+      color: white;
+      padding: 48px 24px 24px;
+    }
+    [data-theme="dark"] footer { background: #050A15; }
+    .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 40px; max-width: 1200px; margin: 0 auto 32px; }
+    .footer-brand-title { font-family: var(--font-head); font-size: 22px; font-weight: 800; color: white; margin-bottom: 8px; }
+    .footer-brand-desc { font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 16px; line-height: 1.7; }
+    .footer-heading { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.4); margin-bottom: 14px; }
+    .footer-links { list-style: none; }
+    .footer-links li { margin-bottom: 10px; }
+    .footer-links a { font-size: 13px; color: rgba(255,255,255,0.6); text-decoration: none; transition: color var(--transition); }
+    .footer-links a:hover { color: white; }
+    .footer-bottom { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; text-align: center; font-size: 12px; color: rgba(255,255,255,0.3); max-width: 1200px; margin: 0 auto; }
+
+    /* ================================
+       UPLOAD AREA (Admin)
+    ================================ */
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 30px;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .upload-area:hover { border-color: var(--primary); background: var(--primary-glow); }
+    .upload-area i { font-size: 32px; color: var(--text-muted); margin-bottom: 8px; display: block; }
+    .upload-area p { font-size: 13px; color: var(--text-muted); }
+    .upload-preview { max-width: 100%; max-height: 150px; border-radius: 8px; margin-top: 12px; display: none; }
+
+    /* ================================
+       EMPTY STATE
+    ================================ */
+    .empty-state {
+      text-align: center; padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state i { font-size: 48px; margin-bottom: 16px; display: block; }
+    .empty-state p { font-size: 15px; }
+
+    /* ================================
+       SKELETON LOADER
+    ================================ */
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* ================================
+       RESPONSIVE
+    ================================ */
+    @media (max-width: 768px) {
+      .hero-container { grid-template-columns: 1fr; gap: 40px; padding: 40px 20px; }
+      .hero-visual { display: none; }
+      .hero h1 { font-size: 2rem; }
+      .hero-stats { gap: 16px; }
+      .footer-grid { grid-template-columns: 1fr; gap: 24px; }
+      .form-row { grid-template-columns: 1fr; }
+      .admin-sidebar { width: 56px; }
+      .admin-sidebar .admin-nav-item span,
+      .admin-sidebar .admin-brand,
+      .admin-sidebar .admin-logout span { display: none; }
+      .admin-content { padding: 20px; }
+      .vehicles-grid { grid-template-columns: 1fr; }
+      .struk-actions { flex-direction: column; }
+      .chat-window { width: 280px; }
+    }
+
+    @media (max-width: 480px) {
+      section { padding: 50px 16px; }
+      .modal { padding: 20px; border-radius: 20px; }
+      .navbar { padding: 0 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ================================
+     LOADING OVERLAY
+================================ -->
+<div class="loading-overlay" id="loading">
+  <div class="loading-spinner"></div>
+</div>
+
+<!-- ================================
+     TOAST CONTAINER
+================================ -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ================================
+     NAVBAR
+================================ -->
+<nav class="navbar">
+  <div class="navbar-brand" id="logo-click-target">
+    <div class="navbar-logo">
+      <i class="fas fa-car"></i>
+    </div>
+    <div class="navbar-text">
+      <div class="navbar-title">CianjurTravel</div>
+      <div class="navbar-sub">Sewa Mobil Terpercaya</div>
+    </div>
+  </div>
+  <div class="navbar-actions">
+    <button class="btn-dark-toggle" id="dark-toggle" title="Toggle Dark Mode">
+      <i class="fas fa-moon" id="dark-icon"></i>
+    </button>
+    <a href="#vehicles" class="btn btn-primary" style="text-decoration:none">
+      <i class="fas fa-calendar-check"></i> Book Sekarang
+    </a>
+  </div>
+</nav>
+
+<!-- ================================
+     HERO
+================================ -->
+<section class="hero" id="home">
+  <div class="hero-container">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span></span>
+        Melayani 24/7 – Cianjur & Sekitarnya
+      </div>
+      <h1>Perjalanan Nyaman,<br><span class="highlight">Harga Terjangkau</span></h1>
+      <p>Temukan armada terbaik untuk perjalanan wisata, antar-jemput, atau keperluan bisnis Anda. Driver berpengalaman, kendaraan terawat, harga transparan.</p>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="hero-stat-num">50+</div>
+          <div class="hero-stat-label">Armada</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-num">2000+</div>
+          <div class="hero-stat-label">Penumpang</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-num">4.9★</div>
+          <div class="hero-stat-label">Rating</div>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <a href="#vehicles" class="btn btn-primary btn-lg">
+          <i class="fas fa-car"></i> Lihat Kendaraan
+        </a>
+        <a href="#routes" class="btn btn-outline btn-lg">
+          <i class="fas fa-map-marked-alt"></i> Cek Rute
+        </a>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hero-car-card">
+        <div class="hero-car-img">🚐</div>
+        <div style="margin-bottom:12px">
+          <div style="font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text)">Hiace Premio</div>
+          <div style="font-size:13px;color:var(--text-secondary)">Cianjur → Bandung</div>
+        </div>
+        <div class="hero-feature-badges">
+          <div class="feature-badge active"><i class="fas fa-check"></i> Tersedia</div>
+          <div class="feature-badge"><i class="fas fa-users"></i> 12 Seats</div>
+          <div class="feature-badge"><i class="fas fa-snowflake"></i> AC</div>
+          <div class="feature-badge"><i class="fas fa-wifi"></i> WiFi</div>
+        </div>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:11px;color:var(--text-muted)">Mulai dari</div>
+            <div style="font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--primary)">Rp 4.500<span style="font-size:12px;font-weight:500;color:var(--text-muted)">/km</span></div>
+          </div>
+          <button class="btn btn-primary" onclick="document.getElementById('vehicles').scrollIntoView({behavior:'smooth'})">Booking</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================
+     VEHICLES SECTION
+================================ -->
+<section id="vehicles">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">🚗 Armada Kami</div>
+      <h2 class="section-title">Pilih Kendaraan Anda</h2>
+      <p class="section-desc">Berbagai pilihan armada untuk semua kebutuhan perjalanan Anda</p>
+    </div>
+
+    <div class="vehicles-filter">
+      <button class="filter-btn active" data-filter="all">Semua</button>
+      <button class="filter-btn" data-filter="minibus">Minibus</button>
+      <button class="filter-btn" data-filter="suv">SUV</button>
+      <button class="filter-btn" data-filter="mpv">MPV</button>
+    </div>
+
+    <div class="vehicles-grid" id="vehicles-grid">
+      <!-- Loaded from Firebase -->
+      <div class="skeleton" style="height:360px;border-radius:16px"></div>
+      <div class="skeleton" style="height:360px;border-radius:16px"></div>
+      <div class="skeleton" style="height:360px;border-radius:16px"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================
+     HOW IT WORKS
+================================ -->
+<section id="how-it-works">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">📋 Cara Pesan</div>
+      <h2 class="section-title">Mudah & Cepat</h2>
+      <p class="section-desc">Pesan dalam 3 langkah sederhana</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <span class="step-icon">🚗</span>
+        <div class="step-title">Pilih Kendaraan</div>
+        <div class="step-desc">Pilih armada sesuai kapasitas dan anggaran Anda</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <span class="step-icon">🗺️</span>
+        <div class="step-title">Pilih Rute & Tanggal</div>
+        <div class="step-desc">Tentukan rute perjalanan dan tanggal keberangkatan</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <span class="step-icon">✅</span>
+        <div class="step-title">Konfirmasi Booking</div>
+        <div class="step-desc">Terima struk digital dan konfirmasi via WhatsApp</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">4</div>
+        <span class="step-icon">🎉</span>
+        <div class="step-title">Berangkat!</div>
+        <div class="step-desc">Driver akan menjemput sesuai waktu yang disepakati</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================
+     ROUTES SECTION
+================================ -->
+<section id="routes">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">🗺️ Rute Tersedia</div>
+      <h2 class="section-title">Destinasi Populer</h2>
+      <p class="section-desc">Layanan perjalanan dari dan ke Cianjur</p>
+    </div>
+    <div class="routes-grid" id="routes-grid">
+      <div class="skeleton" style="height:100px;border-radius:14px"></div>
+      <div class="skeleton" style="height:100px;border-radius:14px"></div>
+      <div class="skeleton" style="height:100px;border-radius:14px"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================
+     FOOTER
+================================ -->
+<footer>
+  <div class="footer-grid">
+    <div>
+      <div class="footer-brand-title">🚗 CianjurTravel</div>
+      <p class="footer-brand-desc">Layanan sewa mobil dan travel terpercaya di Cianjur dan sekitarnya. Beroperasi sejak 2015, melayani ribuan penumpang dengan aman dan nyaman.</p>
+      <div style="display:flex;gap:10px">
+        <a href="https://wa.me/6281310291545" style="color:rgba(255,255,255,0.6);font-size:20px;transition:color 0.25s" onmouseover="this.style.color='#25D366'" onmouseout="this.style.color='rgba(255,255,255,0.6)'"><i class="fab fa-whatsapp"></i></a>
+        <a href="#" style="color:rgba(255,255,255,0.6);font-size:20px"><i class="fab fa-instagram"></i></a>
+        <a href="#" style="color:rgba(255,255,255,0.6);font-size:20px"><i class="fab fa-facebook"></i></a>
+      </div>
+    </div>
+    <div>
+      <div class="footer-heading">Navigasi</div>
+      <ul class="footer-links">
+        <li><a href="#home">Beranda</a></li>
+        <li><a href="#vehicles">Kendaraan</a></li>
+        <li><a href="#routes">Rute</a></li>
+        <li><a href="#how-it-works">Cara Pesan</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-heading">Kontak</div>
+      <ul class="footer-links">
+        <li><a href="tel:+6281310291545">📞 0813-1029-1545</a></li>
+        <li><a href="https://wa.me/6281310291545">💬 WhatsApp</a></li>
+        <li><a href="#">📍 Cianjur, Jawa Barat</a></li>
+        <li><a href="#">🕒 Buka 24 Jam</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2025 CianjurTravel. Semua hak dilindungi. Dibuat dengan ❤️ di Cianjur.</p>
+  </div>
+</footer>
+
+<!-- ================================
+     FLOATING CHAT
+================================ -->
+<div class="floating-chat">
+  <div class="chat-window" id="chat-window">
+    <div class="chat-header">
+      <div class="chat-avatar">👨‍💼</div>
+      <div class="chat-header-info">
+        <div class="chat-name">Admin CianjurTravel</div>
+        <div class="chat-status">● Online</div>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="chat-bubble">
+        Halo! 👋 Ada yang bisa kami bantu? Hubungi kami langsung via WhatsApp untuk pelayanan lebih cepat!
+      </div>
+    </div>
+    <div class="chat-input-area">
+      <input type="text" class="chat-input" id="chat-input" placeholder="Ketik pesan..." />
+      <button class="chat-send" id="chat-send">
+        <i class="fas fa-paper-plane"></i>
+      </button>
+    </div>
+  </div>
+  <button class="chat-toggle" id="chat-toggle">
+    <i class="fab fa-whatsapp"></i>
+    <div class="chat-badge">1</div>
+  </button>
+</div>
+
+<!-- ================================
+     BOOKING MODAL
+================================ -->
+<div class="modal-overlay" id="booking-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📋 Form Booking</div>
+      <button class="modal-close" onclick="closeModal('booking-modal')">×</button>
+    </div>
+
+    <div class="booking-vehicle-preview" id="booking-vehicle-preview"></div>
+
+    <form id="booking-form" onsubmit="return false">
+      <div class="form-group">
+        <label class="form-label">Nama Lengkap *</label>
+        <input type="text" class="form-control" id="booking-name" placeholder="Masukkan nama lengkap" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">No. WhatsApp *</label>
+        <input type="text" class="form-control" id="booking-phone" placeholder="Contoh: 081234567890" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pilih Rute *</label>
+        <select class="form-control" id="booking-route" required onchange="updateBookingPrice()">
+          <option value="">-- Pilih Rute --</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Tanggal Berangkat *</label>
+          <input type="date" class="form-control" id="booking-date" required onchange="updateBookingPrice()" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jam Berangkat *</label>
+          <input type="time" class="form-control" id="booking-time" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Jumlah Penumpang</label>
+        <input type="number" class="form-control" id="booking-pax" placeholder="Jumlah penumpang" min="1" max="50" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Catatan Tambahan</label>
+        <textarea class="form-control" id="booking-notes" rows="2" placeholder="Contoh: penjemputan di hotel, bawa barang besar, dll"></textarea>
+      </div>
+
+      <div class="price-summary" id="price-summary" style="display:none">
+        <div class="price-row">
+          <span class="price-label">Rute</span>
+          <span class="price-value" id="sum-route">-</span>
+        </div>
+        <div class="price-row">
+          <span class="price-label">Jarak</span>
+          <span class="price-value" id="sum-dist">-</span>
+        </div>
+        <div class="price-row">
+          <span class="price-label">Harga per km</span>
+          <span class="price-value" id="sum-harga">-</span>
+        </div>
+        <div class="price-row total">
+          <span class="price-label">Total Harga</span>
+          <span class="price-value" id="sum-total">-</span>
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:20px" onclick="submitBooking()">
+        <i class="fas fa-check-circle"></i> Konfirmasi Booking
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ================================
+     STRUK MODAL
+================================ -->
+<div class="modal-overlay" id="struk-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🧾 Struk Pembayaran</div>
+      <button class="modal-close" onclick="closeModal('struk-modal')">×</button>
+    </div>
+
+    <div id="struk-content">
+      <div class="struk-wrap" id="struk-printable">
+        <div class="struk-header">
+          <div class="struk-logo">🚗</div>
+          <div class="struk-company">CianjurTravel</div>
+          <div class="struk-tagline">Struk Pemesanan Resmi</div>
+        </div>
+        <div class="struk-body">
+          <div class="struk-id">ID Transaksi: <strong id="struk-id"></strong></div>
+          <hr class="struk-divider">
+          <div class="struk-row"><span class="struk-label">Nama</span><span class="struk-value" id="struk-name"></span></div>
+          <div class="struk-row"><span class="struk-label">No. WA</span><span class="struk-value" id="struk-phone"></span></div>
+          <div class="struk-row"><span class="struk-label">Kendaraan</span><span class="struk-value" id="struk-vehicle"></span></div>
+          <div class="struk-row"><span class="struk-label">Rute</span><span class="struk-value" id="struk-route"></span></div>
+          <div class="struk-row"><span class="struk-label">Jarak</span><span class="struk-value" id="struk-distance"></span></div>
+          <div class="struk-row"><span class="struk-label">Tanggal</span><span class="struk-value" id="struk-date"></span></div>
+          <div class="struk-row"><span class="struk-label">Jam</span><span class="struk-value" id="struk-time"></span></div>
+          <div class="struk-row"><span class="struk-label">Penumpang</span><span class="struk-value" id="struk-pax"></span></div>
+          <hr class="struk-divider">
+          <div class="struk-total-box">
+            <div class="struk-total-label">Total Pembayaran</div>
+            <div class="struk-total-amount" id="struk-total"></div>
+          </div>
+          <div style="margin-top:14px;text-align:center">
+            <div style="display:inline-block;background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;padding:6px 14px;font-size:11px;color:#92400E;font-weight:600">
+              ⏳ Status: Menunggu Konfirmasi
+            </div>
+          </div>
+        </div>
+        <div class="struk-footer">
+          <p>Terima kasih telah mempercayai CianjurTravel</p>
+          <p>📞 0813-1029-1545 | Cianjur, Jawa Barat</p>
+        </div>
+      </div>
+
+      <div class="struk-actions">
+        <button class="btn btn-outline btn-sm" onclick="closeModal('struk-modal')">
+          <i class="fas fa-times"></i> Tutup
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="downloadStruk()">
+          <i class="fas fa-download"></i> Download JPG
+        </button>
+        <button class="btn btn-success btn-sm" onclick="sendToWhatsApp()">
+          <i class="fab fa-whatsapp"></i> Kirim WA
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================
+     ADMIN LOGIN MODAL
+================================ -->
+<div class="modal-overlay" id="admin-login-modal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">🔐 Admin Login</div>
+      <button class="modal-close" onclick="closeModal('admin-login-modal')">×</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email Admin</label>
+      <input type="email" class="form-control" id="admin-email" placeholder="admin@cianjurtravel.com" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" class="form-control" id="admin-password" placeholder="••••••••" />
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px" onclick="adminLogin()">
+      <i class="fas fa-sign-in-alt"></i> Masuk
+    </button>
+  </div>
+</div>
+
+<!-- ================================
+     ADMIN VEHICLE MODAL
+================================ -->
+<div class="modal-overlay" id="admin-vehicle-modal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title" id="vehicle-modal-title">➕ Tambah Kendaraan</div>
+      <button class="modal-close" onclick="closeModal('admin-vehicle-modal')">×</button>
+    </div>
+    <form id="vehicle-form" onsubmit="return false">
+      <input type="hidden" id="vehicle-edit-id" />
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nama Kendaraan *</label>
+          <input type="text" class="form-control" id="v-nama" placeholder="Contoh: Toyota Hiace" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kapasitas (orang) *</label>
+          <input type="number" class="form-control" id="v-kapasitas" placeholder="12" required />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Harga per km (Rp) *</label>
+          <input type="number" class="form-control" id="v-harga" placeholder="4500" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipe Kendaraan</label>
+          <select class="form-control" id="v-tipe">
+            <option value="minibus">Minibus</option>
+            <option value="suv">SUV</option>
+            <option value="mpv">MPV</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Deskripsi</label>
+        <textarea class="form-control" id="v-desc" rows="2" placeholder="Fitur unggulan kendaraan..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Gambar Kendaraan</label>
+        <div class="upload-area" id="upload-area" onclick="document.getElementById('v-gambar').click()">
+          <i class="fas fa-cloud-upload-alt"></i>
+          <p>Klik untuk upload gambar</p>
+          <p style="font-size:11px;margin-top:4px">JPG, PNG, WebP – Max 5MB</p>
+          <img id="upload-preview" class="upload-preview" alt="Preview" />
+        </div>
+        <input type="file" id="v-gambar" accept="image/*" style="display:none" onchange="previewImage(this)" />
+      </div>
+      <button type="button" class="btn btn-primary" style="width:100%;justify-content:center" onclick="saveVehicle()">
+        <i class="fas fa-save"></i> Simpan Kendaraan
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ================================
+     ADMIN ROUTE MODAL
+================================ -->
+<div class="modal-overlay" id="admin-route-modal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title" id="route-modal-title">➕ Tambah Rute</div>
+      <button class="modal-close" onclick="closeModal('admin-route-modal')">×</button>
+    </div>
+    <form id="route-form" onsubmit="return false">
+      <input type="hidden" id="route-edit-id" />
+      <div class="form-group">
+        <label class="form-label">Nama Rute *</label>
+        <input type="text" class="form-control" id="r-nama" placeholder="Cianjur → Bandung" required />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Jarak (km) *</label>
+          <input type="number" class="form-control" id="r-jarak" placeholder="65" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Harga Paket (Rp)</label>
+          <input type="number" class="form-control" id="r-harga" placeholder="Optional" />
+        </div>
+      </div>
+      <button type="button" class="btn btn-primary" style="width:100%;justify-content:center" onclick="saveRoute()">
+        <i class="fas fa-save"></i> Simpan Rute
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ================================
+     ADMIN PANEL
+================================ -->
+<div id="admin-panel">
+  <aside class="admin-sidebar">
+    <div class="admin-brand">
+      <div class="admin-brand-title">⚙️ Admin</div>
+      <div class="admin-brand-sub">CianjurTravel</div>
+    </div>
+    <div class="admin-nav-item active" onclick="showAdminPage('dashboard')" data-page="dashboard">
+      <i class="fas fa-chart-pie"></i><span>Dashboard</span>
+    </div>
+    <div class="admin-nav-item" onclick="showAdminPage('vehicles')" data-page="vehicles">
+      <i class="fas fa-car"></i><span>Kendaraan</span>
+    </div>
+    <div class="admin-nav-item" onclick="showAdminPage('routes')" data-page="routes">
+      <i class="fas fa-route"></i><span>Rute & Harga</span>
+    </div>
+    <div class="admin-nav-item" onclick="showAdminPage('bookings')" data-page="bookings">
+      <i class="fas fa-calendar-alt"></i><span>Booking</span>
+    </div>
+    <div class="admin-nav-item" onclick="showAdminPage('history')" data-page="history">
+      <i class="fas fa-history"></i><span>Histori</span>
+    </div>
+    <div class="admin-logout">
+      <button class="btn btn-danger btn-sm" onclick="adminLogout()" style="width:100%;justify-content:center">
+        <i class="fas fa-sign-out-alt"></i><span> Logout</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="admin-content">
+
+    <!-- DASHBOARD -->
+    <div class="admin-page active" id="page-dashboard">
+      <div class="admin-page-title">Dashboard</div>
+      <div class="admin-page-desc">Ringkasan aktivitas CianjurTravel</div>
+      <div class="admin-stats">
+        <div class="admin-stat-card">
+          <div class="admin-stat-icon blue"><i class="fas fa-car"></i></div>
+          <div class="admin-stat-num" id="stat-vehicles">-</div>
+          <div class="admin-stat-label">Total Kendaraan</div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-icon green"><i class="fas fa-calendar-check"></i></div>
+          <div class="admin-stat-num" id="stat-bookings">-</div>
+          <div class="admin-stat-label">Total Booking</div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-icon amber"><i class="fas fa-route"></i></div>
+          <div class="admin-stat-num" id="stat-routes">-</div>
+          <div class="admin-stat-label">Total Rute</div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-icon red"><i class="fas fa-clock"></i></div>
+          <div class="admin-stat-num" id="stat-pending">-</div>
+          <div class="admin-stat-label">Menunggu</div>
+        </div>
+      </div>
+      <div class="admin-card">
+        <div class="admin-card-title">📅 Booking Terbaru</div>
+        <div class="table-wrap">
+          <table id="recent-bookings-table">
+            <thead><tr><th>ID</th><th>Nama</th><th>Rute</th><th>Tanggal</th><th>Total</th><th>Status</th></tr></thead>
+            <tbody id="recent-bookings-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- VEHICLES ADMIN -->
+    <div class="admin-page" id="page-vehicles">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px">
+        <div>
+          <div class="admin-page-title">Manajemen Kendaraan</div>
+          <div class="admin-page-desc">Kelola armada kendaraan</div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddVehicle()">
+          <i class="fas fa-plus"></i> Tambah Kendaraan
+        </button>
+      </div>
+      <div class="admin-card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Gambar</th><th>Nama</th><th>Kapasitas</th><th>Harga/km</th><th>Tipe</th><th>Aksi</th></tr></thead>
+            <tbody id="admin-vehicles-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROUTES ADMIN -->
+    <div class="admin-page" id="page-routes">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px">
+        <div>
+          <div class="admin-page-title">Manajemen Rute & Harga</div>
+          <div class="admin-page-desc">Atur rute perjalanan dan tarif</div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddRoute()">
+          <i class="fas fa-plus"></i> Tambah Rute
+        </button>
+      </div>
+      <div class="admin-card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nama Rute</th><th>Jarak (km)</th><th>Harga Paket</th><th>Aksi</th></tr></thead>
+            <tbody id="admin-routes-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOOKINGS ADMIN -->
+    <div class="admin-page" id="page-bookings">
+      <div class="admin-page-title">Manajemen Booking</div>
+      <div class="admin-page-desc">Kelola jadwal dan status pemesanan</div>
+      <div class="admin-card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Nama</th><th>Kendaraan</th><th>Rute</th><th>Tanggal</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead>
+            <tbody id="admin-bookings-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY ADMIN -->
+    <div class="admin-page" id="page-history">
+      <div class="admin-page-title">Histori Transaksi</div>
+      <div class="admin-page-desc">Semua riwayat pemesanan</div>
+      <div class="admin-card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Nama</th><th>WA</th><th>Kendaraan</th><th>Rute</th><th>Tanggal</th><th>Total</th><th>Status</th></tr></thead>
+            <tbody id="admin-history-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ================================
+     JAVASCRIPT
+================================ -->
+<script>
+// ============================================
+// STATE
+// ============================================
+let selectedVehicle = null;
+let currentBookingData = null;
+let allRoutes = [];
+let allVehicles = [];
+let allBookings = [];
+let logoClickCount = 0;
+let logoClickTimer = null;
+
+// ============================================
+// DARK MODE
+// ============================================
+const darkToggle = document.getElementById('dark-toggle');
+const darkIcon = document.getElementById('dark-icon');
+const html = document.documentElement;
+
+const savedTheme = localStorage.getItem('theme') || 'light';
+html.setAttribute('data-theme', savedTheme);
+updateDarkIcon(savedTheme);
+
+darkToggle.addEventListener('click', () => {
+  const current = html.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  updateDarkIcon(next);
+});
+
+function updateDarkIcon(theme) {
+  darkIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+}
+
+// ============================================
+// SECRET ADMIN UNLOCK (5x click logo)
+// ============================================
+document.getElementById('logo-click-target').addEventListener('click', () => {
+  logoClickCount++;
+  clearTimeout(logoClickTimer);
+  logoClickTimer = setTimeout(() => { logoClickCount = 0; }, 2000);
+
+  if (logoClickCount >= 5) {
+    logoClickCount = 0;
+    if (!window._currentUser) {
+      document.getElementById('admin-login-modal').style.display = 'flex';
+    }
+  }
+});
+
+// ============================================
+// MODAL HELPERS
+// ============================================
+function openModal(id) {
+  document.getElementById(id).style.display = 'flex';
+}
+function closeModal(id) {
+  document.getElementById(id).style.display = 'none';
+}
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.style.display = 'none';
+  });
+});
+
+// ============================================
+// TOAST
+// ============================================
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const icons = { success: 'fa-check-circle', error: 'fa-times-circle', info: 'fa-info-circle' };
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<i class="fas ${icons[type] || 'fa-info-circle'} toast-icon"></i><span class="toast-msg">${msg}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+// ============================================
+// LOADING
+// ============================================
+function showLoading() { document.getElementById('loading').classList.add('active'); }
+function hideLoading() { document.getElementById('loading').classList.remove('active'); }
+
+// ============================================
+// FORMAT CURRENCY
+// ============================================
+function formatRp(num) {
+  return 'Rp ' + Number(num).toLocaleString('id-ID');
+}
+
+// ============================================
+// GENERATE TRANSACTION ID
+// ============================================
+function generateTxId() {
+  const ts = Date.now().toString(36).toUpperCase();
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `CJT-${ts}-${rand}`;
+}
+
+// ============================================
+// LOAD VEHICLES (Public)
+// ============================================
+async function loadVehicles() {
+  const grid = document.getElementById('vehicles-grid');
+  try {
+    const { db, collection, getDocs } = window._firebase;
+    const snap = await getDocs(collection(db, 'vehicles'));
+    allVehicles = [];
+    snap.forEach(d => allVehicles.push({ id: d.id, ...d.data() }));
+
+    if (allVehicles.length === 0) {
+      // Seed demo data
+      allVehicles = getDemoVehicles();
+    }
+    renderVehicles(allVehicles);
+  } catch (e) {
+    allVehicles = getDemoVehicles();
+    renderVehicles(allVehicles);
+  }
+}
+
+function getDemoVehicles() {
+  return [
+    { id: 'demo1', nama: 'Toyota Hiace Premio', kapasitas: 12, harga_per_km: 4500, tipe: 'minibus', gambar: '', desc: 'AC, Kursi Nyaman, Bagasi Besar' },
+    { id: 'demo2', nama: 'Toyota Innova Reborn', kapasitas: 7, harga_per_km: 3500, tipe: 'mpv', gambar: '', desc: 'AC, Audio System, Nyaman' },
+    { id: 'demo3', nama: 'Mitsubishi Pajero Sport', kapasitas: 7, harga_per_km: 5500, tipe: 'suv', gambar: '', desc: '4WD, Premium, Off-road capable' },
+    { id: 'demo4', nama: 'Isuzu ELF Minibus', kapasitas: 16, harga_per_km: 5000, tipe: 'minibus', gambar: '', desc: 'AC, Kursi Lipat, Rombongan' },
+    { id: 'demo5', nama: 'Toyota Avanza', kapasitas: 7, harga_per_km: 3000, tipe: 'mpv', gambar: '', desc: 'AC, Ekonomis, Efisien' },
+    { id: 'demo6', nama: 'Honda BR-V', kapasitas: 7, harga_per_km: 3800, tipe: 'suv', gambar: '', desc: 'AC, Modern, Sporty' },
+  ];
+}
+
+const vehicleEmoji = { minibus: '🚌', suv: '🚙', mpv: '🚐' };
+
+function renderVehicles(vehicles) {
+  const grid = document.getElementById('vehicles-grid');
+  if (!vehicles.length) {
+    grid.innerHTML = '<div class="empty-state"><i class="fas fa-car"></i><p>Belum ada kendaraan tersedia</p></div>';
+    return;
+  }
+  grid.innerHTML = vehicles.map((v, i) => `
+    <div class="vehicle-card" data-type="${v.tipe}" style="animation-delay:${i * 0.05}s">
+      <div class="vehicle-card-img">
+        ${v.gambar ? `<img src="${v.gambar}" alt="${v.nama}" style="width:100%;height:100%;object-fit:cover" loading="lazy" />` : vehicleEmoji[v.tipe] || '🚗'}
+        <div class="vehicle-card-badge">✓ Tersedia</div>
+      </div>
+      <div class="vehicle-card-body">
+        <div class="vehicle-card-name">${v.nama}</div>
+        <div class="vehicle-card-meta">
+          <div class="vehicle-meta-item"><i class="fas fa-users"></i>${v.kapasitas} Penumpang</div>
+          <div class="vehicle-meta-item"><i class="fas fa-tag"></i>${v.tipe.toUpperCase()}</div>
+        </div>
+        ${v.desc ? `<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">${v.desc}</div>` : ''}
+        <div class="vehicle-card-price">
+          <div class="price-num">${formatRp(v.harga_per_km)}</div>
+          <div class="price-unit">/km</div>
+        </div>
+        <div class="vehicle-card-actions">
+          <button class="btn btn-primary" onclick="openBooking('${v.id}')">
+            <i class="fas fa-calendar-check"></i> Book
+          </button>
+          <button class="btn btn-outline" onclick="openWhatsApp('Saya tertarik dengan kendaraan ${v.nama}')">
+            <i class="fab fa-whatsapp"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Filter
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    const filter = this.dataset.filter;
+    const filtered = filter === 'all' ? allVehicles : allVehicles.filter(v => v.tipe === filter);
+    renderVehicles(filtered);
+  });
+});
+
+// ============================================
+// LOAD ROUTES (Public)
+// ============================================
+async function loadRoutes() {
+  try {
+    const { db, collection, getDocs } = window._firebase;
+    const snap = await getDocs(collection(db, 'routes'));
+    allRoutes = [];
+    snap.forEach(d => allRoutes.push({ id: d.id, ...d.data() }));
+    if (!allRoutes.length) allRoutes = getDemoRoutes();
+    renderRoutes(allRoutes);
+    populateRouteDropdown(allRoutes);
+  } catch(e) {
+    allRoutes = getDemoRoutes();
+    renderRoutes(allRoutes);
+    populateRouteDropdown(allRoutes);
+  }
+}
+
+function getDemoRoutes() {
+  return [
+    { id: 'r1', nama_rute: 'Cianjur → Bandung', jarak: 65, harga: 300000 },
+    { id: 'r2', nama_rute: 'Cianjur → Jakarta', jarak: 140, harga: 600000 },
+    { id: 'r3', nama_rute: 'Cianjur → Bogor', jarak: 55, harga: 250000 },
+    { id: 'r4', nama_rute: 'Cianjur → Sukabumi', jarak: 45, harga: 200000 },
+    { id: 'r5', nama_rute: 'Cianjur → Garut', jarak: 85, harga: 380000 },
+    { id: 'r6', nama_rute: 'Cianjur → Tasikmalaya', jarak: 110, harga: 480000 },
+  ];
+}
+
+function renderRoutes(routes) {
+  const grid = document.getElementById('routes-grid');
+  grid.innerHTML = routes.map(r => `
+    <div class="route-card">
+      <div class="route-from-to">
+        <div class="route-city">${r.nama_rute.split('→')[0].trim()}</div>
+        <div class="route-arrow">→</div>
+        <div class="route-city">${(r.nama_rute.split('→')[1] || '').trim()}</div>
+      </div>
+      <div class="route-details">
+        <div class="route-detail-item">
+          <div class="route-detail-val">${r.jarak} km</div>
+          <div class="route-detail-label">Jarak</div>
+        </div>
+        <div class="route-detail-item">
+          <div class="route-detail-val">${r.harga ? formatRp(r.harga) : 'Per km'}</div>
+          <div class="route-detail-label">Tarif Paket</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function populateRouteDropdown(routes) {
+  const sel = document.getElementById('booking-route');
+  sel.innerHTML = '<option value="">-- Pilih Rute --</option>' +
+    routes.map(r => `<option value="${r.id}" data-jarak="${r.jarak}" data-harga="${r.harga || 0}" data-nama="${r.nama_rute}">${r.nama_rute} (${r.jarak} km)</option>`).join('');
+}
+
+// ============================================
+// OPEN BOOKING
+// ============================================
+function openBooking(vehicleId) {
+  selectedVehicle = allVehicles.find(v => v.id === vehicleId);
+  if (!selectedVehicle) return;
+
+  const preview = document.getElementById('booking-vehicle-preview');
+  const emoji = vehicleEmoji[selectedVehicle.tipe] || '🚗';
+  preview.innerHTML = `
+    <div class="booking-vehicle-thumb">
+      ${selectedVehicle.gambar ? `<img src="${selectedVehicle.gambar}" alt="${selectedVehicle.nama}" />` : emoji}
+    </div>
+    <div>
+      <div class="booking-vehicle-name">${selectedVehicle.nama}</div>
+      <div class="booking-vehicle-cap">${selectedVehicle.kapasitas} penumpang • ${formatRp(selectedVehicle.harga_per_km)}/km</div>
+    </div>
+  `;
+
+  // Set min date to today
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('booking-date').min = today;
+  document.getElementById('price-summary').style.display = 'none';
+
+  openModal('booking-modal');
+}
+
+function updateBookingPrice() {
+  const routeSel = document.getElementById('booking-route');
+  const selected = routeSel.options[routeSel.selectedIndex];
+  if (!selected || !selected.value || !selectedVehicle) {
+    document.getElementById('price-summary').style.display = 'none';
+    return;
+  }
+
+  const jarak = parseInt(selected.dataset.jarak) || 0;
+  const routeNama = selected.dataset.nama;
+  const total = jarak * selectedVehicle.harga_per_km;
+
+  document.getElementById('sum-route').textContent = routeNama;
+  document.getElementById('sum-dist').textContent = jarak + ' km';
+  document.getElementById('sum-harga').textContent = formatRp(selectedVehicle.harga_per_km);
+  document.getElementById('sum-total').textContent = formatRp(total);
+  document.getElementById('price-summary').style.display = 'block';
+}
+
+// ============================================
+// SUBMIT BOOKING
+// ============================================
+async function submitBooking() {
+  const name = document.getElementById('booking-name').value.trim();
+  const phone = document.getElementById('booking-phone').value.trim();
+  const routeId = document.getElementById('booking-route').value;
+  const date = document.getElementById('booking-date').value;
+  const time = document.getElementById('booking-time').value;
+  const pax = document.getElementById('booking-pax').value || '1';
+  const notes = document.getElementById('booking-notes').value.trim();
+
+  if (!name || !phone || !routeId || !date || !time) {
+    showToast('Harap lengkapi semua field yang wajib diisi!', 'error');
+    return;
+  }
+
+  const routeSel = document.getElementById('booking-route');
+  const routeOpt = routeSel.options[routeSel.selectedIndex];
+  const jarak = parseInt(routeOpt.dataset.jarak) || 0;
+  const routeNama = routeOpt.dataset.nama;
+  const total = jarak * selectedVehicle.harga_per_km;
+  const txId = generateTxId();
+
+  const bookingData = {
+    tx_id: txId,
+    nama: name,
+    phone: phone,
+    kendaraan_id: selectedVehicle.id,
+    kendaraan_nama: selectedVehicle.nama,
+    rute: routeNama,
+    jarak: jarak,
+    tanggal: date,
+    jam: time,
+    pax: pax,
+    notes: notes,
+    total_harga: total,
+    status: 'pending',
+    created_at: new Date().toISOString()
+  };
+
+  showLoading();
+  try {
+    const { db, collection, addDoc, serverTimestamp } = window._firebase;
+    await addDoc(collection(db, 'bookings'), {
+      ...bookingData,
+      server_time: serverTimestamp()
+    });
+    currentBookingData = bookingData;
+    hideLoading();
+    closeModal('booking-modal');
+    showStruk(bookingData);
+    showToast('Booking berhasil! Silakan cek struk Anda.', 'success');
+    resetBookingForm();
+  } catch(e) {
+    // Even if Firebase fails, show the receipt
+    currentBookingData = bookingData;
+    hideLoading();
+    closeModal('booking-modal');
+    showStruk(bookingData);
+    showToast('Booking diterima! (Mode demo)', 'success');
+    resetBookingForm();
+  }
+}
+
+function resetBookingForm() {
+  document.getElementById('booking-form').reset();
+  document.getElementById('price-summary').style.display = 'none';
+}
+
+// ============================================
+// SHOW STRUK
+// ============================================
+function showStruk(data) {
+  document.getElementById('struk-id').textContent = data.tx_id;
+  document.getElementById('struk-name').textContent = data.nama;
+  document.getElementById('struk-phone').textContent = data.phone;
+  document.getElementById('struk-vehicle').textContent = data.kendaraan_nama;
+  document.getElementById('struk-route').textContent = data.rute;
+  document.getElementById('struk-distance').textContent = data.jarak + ' km';
+  document.getElementById('struk-date').textContent = new Date(data.tanggal).toLocaleDateString('id-ID', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('struk-time').textContent = data.jam + ' WIB';
+  document.getElementById('struk-pax').textContent = data.pax + ' orang';
+  document.getElementById('struk-total').textContent = formatRp(data.total_harga);
+  openModal('struk-modal');
+}
+
+// ============================================
+// DOWNLOAD STRUK JPG
+// ============================================
+async function downloadStruk() {
+  showLoading();
+  try {
+    const el = document.getElementById('struk-printable');
+    const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    const link = document.createElement('a');
+    link.download = `struk-${currentBookingData?.tx_id || 'booking'}.jpg`;
+    link.href = canvas.toDataURL('image/jpeg', 0.95);
+    link.click();
+    showToast('Struk berhasil didownload!', 'success');
+  } catch(e) {
+    showToast('Gagal download struk', 'error');
+  }
+  hideLoading();
+}
+
+// ============================================
+// SEND TO WHATSAPP
+// ============================================
+function sendToWhatsApp() {
+  if (!currentBookingData) return;
+  const d = currentBookingData;
+  const msg = `🚗 *BOOKING CIANJURTRAVEL* 🚗
+
+📋 *ID Transaksi:* ${d.tx_id}
+
+👤 *Nama:* ${d.nama}
+📱 *WhatsApp:* ${d.phone}
+🚙 *Kendaraan:* ${d.kendaraan_nama}
+🗺️ *Rute:* ${d.rute}
+📏 *Jarak:* ${d.jarak} km
+📅 *Tanggal:* ${d.tanggal}
+🕐 *Jam:* ${d.jam} WIB
+👥 *Penumpang:* ${d.pax} orang
+
+💰 *Total Harga: ${formatRp(d.total_harga)}*
+
+Mohon konfirmasi pesanan saya. Terima kasih! 🙏`;
+
+  const url = `https://wa.me/6281310291545?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
+
+function openWhatsApp(msg = '') {
+  const url = `https://wa.me/6281310291545?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
+
+// ============================================
+// CHAT BOX
+// ============================================
+document.getElementById('chat-toggle').addEventListener('click', () => {
+  const win = document.getElementById('chat-window');
+  win.classList.toggle('open');
+  document.querySelector('.chat-badge').style.display = 'none';
+});
+
+document.getElementById('chat-send').addEventListener('click', sendChatMsg);
+document.getElementById('chat-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendChatMsg();
+});
+
+function sendChatMsg() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  const url = `https://wa.me/6281310291545?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+  input.value = '';
+}
+
+// ============================================
+// ADMIN AUTH
+// ============================================
+async function adminLogin() {
+  const email = document.getElementById('admin-email').value.trim();
+  const password = document.getElementById('admin-password').value;
+  if (!email || !password) { showToast('Isi email dan password!', 'error'); return; }
+
+  showLoading();
+  try {
+    const { auth, signInWithEmailAndPassword } = window._firebase;
+    await signInWithEmailAndPassword(auth, email, password);
+    showToast('Login berhasil!', 'success');
+  } catch(e) {
+    showToast('Login gagal: ' + (e.message || 'Coba lagi'), 'error');
+  }
+  hideLoading();
+}
+
+async function adminLogout() {
+  const { auth, signOut } = window._firebase;
+  await signOut(auth);
+  document.getElementById('admin-panel').style.display = 'none';
+  showToast('Logout berhasil', 'success');
+}
+
+// ============================================
+// ADMIN PAGES
+// ============================================
+function showAdminPage(page) {
+  document.querySelectorAll('.admin-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.admin-nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  document.querySelector(`[data-page="${page}"]`).classList.add('active');
+}
+
+// ============================================
+// LOAD ADMIN DATA
+// ============================================
+window.loadAdminData = async function() {
+  await Promise.all([loadAdminVehicles(), loadAdminRoutes(), loadAdminBookings()]);
+  updateDashboardStats();
+};
+
+async function loadAdminVehicles() {
+  try {
+    const { db, collection, getDocs } = window._firebase;
+    const snap = await getDocs(collection(db, 'vehicles'));
+    allVehicles = [];
+    snap.forEach(d => allVehicles.push({ id: d.id, ...d.data() }));
+    if (!allVehicles.length) allVehicles = getDemoVehicles();
+  } catch(e) { allVehicles = getDemoVehicles(); }
+  renderAdminVehicles();
+}
+
+async function loadAdminRoutes() {
+  try {
+    const { db, collection, getDocs } = window._firebase;
+    const snap = await getDocs(collection(db, 'routes'));
+    allRoutes = [];
+    snap.forEach(d => allRoutes.push({ id: d.id, ...d.data() }));
+    if (!allRoutes.length) allRoutes = getDemoRoutes();
+  } catch(e) { allRoutes = getDemoRoutes(); }
+  renderAdminRoutes();
+}
+
+async function loadAdminBookings() {
+  try {
+    const { db, collection, getDocs, query, orderBy } = window._firebase;
+    const q = query(collection(db, 'bookings'), orderBy('created_at', 'desc'));
+    const snap = await getDocs(q);
+    allBookings = [];
+    snap.forEach(d => allBookings.push({ id: d.id, ...d.data() }));
+  } catch(e) { allBookings = []; }
+  renderAdminBookings();
+  renderRecentBookings();
+}
+
+function updateDashboardStats() {
+  document.getElementById('stat-vehicles').textContent = allVehicles.length;
+  document.getElementById('stat-bookings').textContent = allBookings.length;
+  document.getElementById('stat-routes').textContent = allRoutes.length;
+  document.getElementById('stat-pending').textContent = allBookings.filter(b => b.status === 'pending').length;
+}
+
+function renderAdminVehicles() {
+  const tbody = document.getElementById('admin-vehicles-body');
+  if (!allVehicles.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fas fa-car"></i><p>Belum ada kendaraan</p></td></tr>'; return; }
+  tbody.innerHTML = allVehicles.map(v => `
+    <tr>
+      <td><div style="width:50px;height:40px;border-radius:8px;background:var(--bg-secondary);display:flex;align-items:center;justify-content:center;font-size:20px">
+        ${v.gambar ? `<img src="${v.gambar}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" />` : vehicleEmoji[v.tipe] || '🚗'}
+      </div></td>
+      <td><strong>${v.nama}</strong></td>
+      <td>${v.kapasitas} orang</td>
+      <td>${formatRp(v.harga_per_km)}</td>
+      <td><span class="status-badge status-confirmed">${v.tipe}</span></td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-sm" onclick="editVehicle('${v.id}')"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-danger btn-sm" onclick="deleteVehicle('${v.id}')"><i class="fas fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderAdminRoutes() {
+  const tbody = document.getElementById('admin-routes-body');
+  if (!allRoutes.length) { tbody.innerHTML = '<tr><td colspan="4">Belum ada rute</td></tr>'; return; }
+  tbody.innerHTML = allRoutes.map(r => `
+    <tr>
+      <td><strong>${r.nama_rute}</strong></td>
+      <td>${r.jarak} km</td>
+      <td>${r.harga ? formatRp(r.harga) : '-'}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-sm" onclick="editRoute('${r.id}')"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-danger btn-sm" onclick="deleteRoute('${r.id}')"><i class="fas fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderAdminBookings() {
+  const tbody = document.getElementById('admin-bookings-body');
+  const tbody2 = document.getElementById('admin-history-body');
+
+  if (!allBookings.length) {
+    const empty = '<tr><td colspan="8">Belum ada booking</td></tr>';
+    tbody.innerHTML = empty; tbody2.innerHTML = empty; return;
+  }
+
+  const rows = allBookings.map(b => `
+    <tr>
+      <td style="font-size:11px;font-family:monospace">${b.tx_id || b.id}</td>
+      <td>${b.nama}</td>
+      <td>${b.kendaraan_nama || '-'}</td>
+      <td>${b.rute}</td>
+      <td>${b.tanggal}</td>
+      <td>${formatRp(b.total_harga)}</td>
+      <td><span class="status-badge status-${b.status || 'pending'}">${b.status || 'pending'}</span></td>
+      <td>
+        <select class="form-control" style="font-size:12px;padding:4px 8px;width:130px" onchange="updateBookingStatus('${b.id}', this.value)">
+          <option value="pending" ${b.status==='pending'?'selected':''}>Menunggu</option>
+          <option value="confirmed" ${b.status==='confirmed'?'selected':''}>Dikonfirmasi</option>
+          <option value="cancelled" ${b.status==='cancelled'?'selected':''}>Dibatalkan</option>
+        </select>
+      </td>
+    </tr>
+  `).join('');
+
+  tbody.innerHTML = rows;
+  tbody2.innerHTML = allBookings.map(b => `
+    <tr>
+      <td style="font-size:11px;font-family:monospace">${b.tx_id || b.id}</td>
+      <td>${b.nama}</td>
+      <td>${b.phone}</td>
+      <td>${b.kendaraan_nama || '-'}</td>
+      <td>${b.rute}</td>
+      <td>${b.tanggal}</td>
+      <td>${formatRp(b.total_harga)}</td>
+      <td><span class="status-badge status-${b.status || 'pending'}">${b.status || 'pending'}</span></td>
+    </tr>
+  `).join('');
+}
+
+function renderRecentBookings() {
+  const tbody = document.getElementById('recent-bookings-body');
+  const recent = allBookings.slice(0, 5);
+  if (!recent.length) { tbody.innerHTML = '<tr><td colspan="6">Belum ada booking</td></tr>'; return; }
+  tbody.innerHTML = recent.map(b => `
+    <tr>
+      <td style="font-size:11px;font-family:monospace">${(b.tx_id || b.id).slice(0,12)}...</td>
+      <td>${b.nama}</td>
+      <td>${b.rute}</td>
+      <td>${b.tanggal}</td>
+      <td>${formatRp(b.total_harga)}</td>
+      <td><span class="status-badge status-${b.status || 'pending'}">${b.status || 'pending'}</span></td>
+    </tr>
+  `).join('');
+}
+
+// ============================================
+// UPDATE BOOKING STATUS
+// ============================================
+async function updateBookingStatus(bookingId, status) {
+  try {
+    const { db, doc, updateDoc } = window._firebase;
+    await updateDoc(doc(db, 'bookings', bookingId), { status });
+    const idx = allBookings.findIndex(b => b.id === bookingId);
+    if (idx !== -1) allBookings[idx].status = status;
+    showToast('Status booking diperbarui', 'success');
+    updateDashboardStats();
+    renderRecentBookings();
+  } catch(e) { showToast('Gagal update status (mode demo)', 'error'); }
+}
+
+// ============================================
+// VEHICLE CRUD
+// ============================================
+function openAddVehicle() {
+  document.getElementById('vehicle-modal-title').textContent = '➕ Tambah Kendaraan';
+  document.getElementById('vehicle-form').reset();
+  document.getElementById('vehicle-edit-id').value = '';
+  document.getElementById('upload-preview').style.display = 'none';
+  openModal('admin-vehicle-modal');
+}
+
+function editVehicle(id) {
+  const v = allVehicles.find(v => v.id === id);
+  if (!v) return;
+  document.getElementById('vehicle-modal-title').textContent = '✏️ Edit Kendaraan';
+  document.getElementById('vehicle-edit-id').value = id;
+  document.getElementById('v-nama').value = v.nama;
+  document.getElementById('v-kapasitas').value = v.kapasitas;
+  document.getElementById('v-harga').value = v.harga_per_km;
+  document.getElementById('v-tipe').value = v.tipe;
+  document.getElementById('v-desc').value = v.desc || '';
+  if (v.gambar) {
+    const prev = document.getElementById('upload-preview');
+    prev.src = v.gambar; prev.style.display = 'block';
+  }
+  openModal('admin-vehicle-modal');
+}
+
+async function saveVehicle() {
+  const nama = document.getElementById('v-nama').value.trim();
+  const kapasitas = document.getElementById('v-kapasitas').value;
+  const harga = document.getElementById('v-harga').value;
+  const tipe = document.getElementById('v-tipe').value;
+  const desc = document.getElementById('v-desc').value.trim();
+  const fileInput = document.getElementById('v-gambar');
+  const editId = document.getElementById('vehicle-edit-id').value;
+
+  if (!nama || !kapasitas || !harga) { showToast('Lengkapi semua field!', 'error'); return; }
+
+  showLoading();
+  try {
+    let gambarUrl = '';
+
+    // Upload image if selected
+    if (fileInput.files[0]) {
+      const { storage, ref, uploadBytes, getDownloadURL } = window._firebase;
+      const storageRef = ref(storage, `vehicles/${Date.now()}_${fileInput.files[0].name}`);
+      const snapshot = await uploadBytes(storageRef, fileInput.files[0]);
+      gambarUrl = await getDownloadURL(snapshot.ref);
+    } else if (editId) {
+      // Keep existing image
+      const existing = allVehicles.find(v => v.id === editId);
+      gambarUrl = existing?.gambar || '';
+    }
+
+    const data = { nama, kapasitas: parseInt(kapasitas), harga_per_km: parseInt(harga), tipe, desc, gambar: gambarUrl };
+
+    const { db, collection, addDoc, doc, updateDoc } = window._firebase;
+    if (editId) {
+      await updateDoc(doc(db, 'vehicles', editId), data);
+      const idx = allVehicles.findIndex(v => v.id === editId);
+      if (idx !== -1) allVehicles[idx] = { id: editId, ...data };
+      showToast('Kendaraan berhasil diperbarui!', 'success');
+    } else {
+      const docRef = await addDoc(collection(db, 'vehicles'), data);
+      allVehicles.push({ id: docRef.id, ...data });
+      showToast('Kendaraan berhasil ditambahkan!', 'success');
+    }
+
+    closeModal('admin-vehicle-modal');
+    renderAdminVehicles();
+    renderVehicles(allVehicles);
+    updateDashboardStats();
+  } catch(e) {
+    // Demo mode
+    const demoData = { id: `demo_${Date.now()}`, nama, kapasitas: parseInt(kapasitas), harga_per_km: parseInt(harga), tipe, desc, gambar: '' };
+    if (editId) {
+      const idx = allVehicles.findIndex(v => v.id === editId);
+      if (idx !== -1) allVehicles[idx] = { ...demoData, id: editId };
+    } else { allVehicles.push(demoData); }
+    closeModal('admin-vehicle-modal');
+    renderAdminVehicles();
+    renderVehicles(allVehicles);
+    showToast('Kendaraan disimpan (mode demo)', 'success');
+  }
+  hideLoading();
+}
+
+async function deleteVehicle(id) {
+  if (!confirm('Hapus kendaraan ini?')) return;
+  showLoading();
+  try {
+    const { db, doc, deleteDoc } = window._firebase;
+    await deleteDoc(doc(db, 'vehicles', id));
+    showToast('Kendaraan dihapus!', 'success');
+  } catch(e) { showToast('Dihapus (mode demo)', 'success'); }
+  allVehicles = allVehicles.filter(v => v.id !== id);
+  renderAdminVehicles();
+  renderVehicles(allVehicles);
+  updateDashboardStats();
+  hideLoading();
+}
+
+// ============================================
+// ROUTE CRUD
+// ============================================
+function openAddRoute() {
+  document.getElementById('route-modal-title').textContent = '➕ Tambah Rute';
+  document.getElementById('route-form').reset();
+  document.getElementById('route-edit-id').value = '';
+  openModal('admin-route-modal');
+}
+
+function editRoute(id) {
+  const r = allRoutes.find(r => r.id === id);
+  if (!r) return;
+  document.getElementById('route-modal-title').textContent = '✏️ Edit Rute';
+  document.getElementById('route-edit-id').value = id;
+  document.getElementById('r-nama').value = r.nama_rute;
+  document.getElementById('r-jarak').value = r.jarak;
+  document.getElementById('r-harga').value = r.harga || '';
+  openModal('admin-route-modal');
+}
+
+async function saveRoute() {
+  const nama = document.getElementById('r-nama').value.trim();
+  const jarak = document.getElementById('r-jarak').value;
+  const harga = document.getElementById('r-harga').value;
+  const editId = document.getElementById('route-edit-id').value;
+  if (!nama || !jarak) { showToast('Nama rute dan jarak wajib diisi!', 'error'); return; }
+
+  showLoading();
+  const data = { nama_rute: nama, jarak: parseInt(jarak), harga: harga ? parseInt(harga) : 0 };
+  try {
+    const { db, collection, addDoc, doc, updateDoc } = window._firebase;
+    if (editId) {
+      await updateDoc(doc(db, 'routes', editId), data);
+      const idx = allRoutes.findIndex(r => r.id === editId);
+      if (idx !== -1) allRoutes[idx] = { id: editId, ...data };
+      showToast('Rute diperbarui!', 'success');
+    } else {
+      const docRef = await addDoc(collection(db, 'routes'), data);
+      allRoutes.push({ id: docRef.id, ...data });
+      showToast('Rute ditambahkan!', 'success');
+    }
+  } catch(e) {
+    if (editId) {
+      const idx = allRoutes.findIndex(r => r.id === editId);
+      if (idx !== -1) allRoutes[idx] = { id: editId, ...data };
+    } else { allRoutes.push({ id: `r_${Date.now()}`, ...data }); }
+    showToast('Rute disimpan (mode demo)', 'success');
+  }
+  closeModal('admin-route-modal');
+  renderAdminRoutes();
+  renderRoutes(allRoutes);
+  populateRouteDropdown(allRoutes);
+  updateDashboardStats();
+  hideLoading();
+}
+
+async function deleteRoute(id) {
+  if (!confirm('Hapus rute ini?')) return;
+  showLoading();
+  try {
+    const { db, doc, deleteDoc } = window._firebase;
+    await deleteDoc(doc(db, 'routes', id));
+    showToast('Rute dihapus!', 'success');
+  } catch(e) { showToast('Dihapus (mode demo)', 'success'); }
+  allRoutes = allRoutes.filter(r => r.id !== id);
+  renderAdminRoutes(); renderRoutes(allRoutes); populateRouteDropdown(allRoutes);
+  updateDashboardStats();
+  hideLoading();
+}
+
+// ============================================
+// IMAGE PREVIEW
+// ============================================
+function previewImage(input) {
+  const prev = document.getElementById('upload-preview');
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      prev.src = e.target.result;
+      prev.style.display = 'block';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+// ============================================
+// INIT
+// ============================================
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    loadVehicles();
+    loadRoutes();
+  }, 500);
+});
+
+// Intersection Observer for animations
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.style.opacity = '1';
+      entry.target.style.transform = 'translateY(0)';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.step-card, .route-card').forEach(el => {
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(20px)';
+  el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+  observer.observe(el);
+});
+</script>
+
+</body>
+</html>

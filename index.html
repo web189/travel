@@ -52,17 +52,35 @@
 
     // ============================
     // 🔥 FIREBASE CONFIG
-    // Ganti dengan konfigurasi Firebase Anda!
     // ============================
+    // PENTING: Pastikan Firestore Rules mengizinkan read/write pada koleksi "bookings"
+    // Gunakan rules berikut di Firebase Console → Firestore → Rules:
+    //
+    // rules_version = '2';
+    // service cloud.firestore {
+    //   match /databases/{database}/documents {
+    //     match /bookings/{docId} {
+    //       allow read, write: if true;  // publik untuk booking
+    //     }
+    //     match /vehicles/{docId} {
+    //       allow read: if true;
+    //       allow write: if request.auth != null;
+    //     }
+    //     match /routes/{docId} {
+    //       allow read: if true;
+    //       allow write: if request.auth != null;
+    //     }
+    //   }
+    // }
     const firebaseConfig = {
-  apiKey: "AIzaSyDob31dYJSt8IbNTEI4Ex4mvf3G9odHH-w",
-  authDomain: "travel-933b6.firebaseapp.com",
-  databaseURL: "https://travel-933b6-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "travel-933b6",
-  storageBucket: "travel-933b6.firebasestorage.app",
-  messagingSenderId: "1073581575080",
-  appId: "1:1073581575080:web:4656deb8bf7c0152f96b9d"
-};
+      apiKey: "AIzaSyDob31dYJSt8IbNTEI4Ex4mvf3G9odHH-w",
+      authDomain: "travel-933b6.firebaseapp.com",
+      databaseURL: "https://travel-933b6-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "travel-933b6",
+      storageBucket: "travel-933b6.firebasestorage.app",
+      messagingSenderId: "1073581575080",
+      appId: "1:1073581575080:web:4656deb8bf7c0152f96b9d"
+    };
 
     let app, auth, db, storage;
     try {
@@ -72,7 +90,13 @@
       storage = getStorage(app);
 
       // Expose to global scope
-      window._firebase = { auth, db, storage, collection, addDoc, getDocs, getDoc, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, onSnapshot, signInWithEmailAndPassword, signOut, onAuthStateChanged, ref, uploadBytes, getDownloadURL, deleteObject };
+      window._firebase = {
+        auth, db, storage,
+        collection, addDoc, getDocs, getDoc, doc, updateDoc, deleteDoc,
+        query, orderBy, serverTimestamp, onSnapshot,
+        signInWithEmailAndPassword, signOut, onAuthStateChanged,
+        ref, uploadBytes, getDownloadURL, deleteObject
+      };
       window._firebaseReady = true;
 
       // Auth state listener
@@ -81,16 +105,19 @@
         if (user) {
           document.getElementById('admin-panel').style.display = 'flex';
           document.getElementById('admin-login-modal').style.display = 'none';
+          // Load semua data admin saat login
           if (window.loadAdminData) window.loadAdminData();
         } else {
           document.getElementById('admin-panel').style.display = 'none';
+          // Hentikan semua listener saat logout
+          if (window._unsubBookings) { window._unsubBookings(); window._unsubBookings = null; }
         }
       });
+
     } catch(e) {
-      // Firebase config belum diisi – jalankan mode demo
       window._firebase = null;
       window._firebaseReady = false;
-      console.warn('Firebase tidak terkonfigurasi, berjalan dalam mode demo:', e.message);
+      console.warn('Firebase tidak terkonfigurasi, mode demo:', e.message);
     }
 
     // Beritahu app bahwa Firebase sudah siap (atau gagal)
@@ -801,10 +828,25 @@
       color: var(--text-secondary);
       transition: all var(--transition);
       border-left: 3px solid transparent;
+      position: relative;
     }
     .admin-nav-item:hover { background: var(--bg-secondary); color: var(--primary); }
     .admin-nav-item.active { background: var(--primary-glow); color: var(--primary); border-left-color: var(--primary); font-weight: 600; }
     .admin-nav-item i { width: 18px; text-align: center; font-size: 15px; }
+    .admin-nav-badge {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      background: var(--danger); color: white;
+      font-size: 10px; font-weight: 700;
+      min-width: 18px; height: 18px;
+      border-radius: 9px; padding: 0 4px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    @keyframes newRowHighlight {
+      0% { background: rgba(16,185,129,0.2); }
+      100% { background: transparent; }
+    }
+    .new-booking-row { animation: newRowHighlight 3s ease forwards; }
 
     .admin-logout {
       margin-top: auto;
@@ -1559,13 +1601,17 @@
     <div class="admin-nav-item" onclick="showAdminPage('routes')" data-page="routes">
       <i class="fas fa-route"></i><span>Rute & Harga</span>
     </div>
-    <div class="admin-nav-item" onclick="showAdminPage('bookings')" data-page="bookings">
+    <div class="admin-nav-item" onclick="showAdminPage('bookings');clearBookingBadge()" data-page="bookings">
       <i class="fas fa-calendar-alt"></i><span>Booking</span>
+      <span class="admin-nav-badge" id="booking-nav-badge" style="display:none">0</span>
     </div>
     <div class="admin-nav-item" onclick="showAdminPage('history')" data-page="history">
       <i class="fas fa-history"></i><span>Histori</span>
     </div>
-    <div class="admin-logout">
+    <div class="admin-logout" style="display:flex;flex-direction:column;gap:8px;padding:0 16px">
+      <button class="btn btn-sm" onclick="resetAllBookings()" style="width:100%;justify-content:center;background:#F59E0B;color:white;border:none">
+        <i class="fas fa-trash-alt"></i><span> Reset Data</span>
+      </button>
       <button class="btn btn-danger btn-sm" onclick="adminLogout()" style="width:100%;justify-content:center">
         <i class="fas fa-sign-out-alt"></i><span> Logout</span>
       </button>
@@ -1597,7 +1643,12 @@
         <div class="admin-stat-card">
           <div class="admin-stat-icon red"><i class="fas fa-clock"></i></div>
           <div class="admin-stat-num" id="stat-pending">-</div>
-          <div class="admin-stat-label">Menunggu</div>
+          <div class="admin-stat-label">Menunggu Konfirmasi</div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-icon green"><i class="fas fa-money-bill-wave"></i></div>
+          <div class="admin-stat-num" id="stat-revenue" style="font-size:16px">-</div>
+          <div class="admin-stat-label">Omzet Confirmed</div>
         </div>
       </div>
       <div class="admin-card">
@@ -1655,12 +1706,19 @@
 
     <!-- BOOKINGS ADMIN -->
     <div class="admin-page" id="page-bookings">
-      <div class="admin-page-title">Manajemen Booking</div>
-      <div class="admin-page-desc">Kelola jadwal dan status pemesanan</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px">
+        <div>
+          <div class="admin-page-title">Manajemen Booking</div>
+          <div class="admin-page-desc">Kelola jadwal dan status pemesanan – update real-time</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="loadAdminBookings()">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+      </div>
       <div class="admin-card">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>ID</th><th>Nama</th><th>Kendaraan</th><th>Rute</th><th>Tanggal</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead>
+            <thead><tr><th>ID Transaksi</th><th>Nama / WA</th><th>Kendaraan</th><th>Rute</th><th>Tanggal</th><th>Total</th><th>Status</th><th>Ubah Status</th><th>Aksi</th></tr></thead>
             <tbody id="admin-bookings-body"></tbody>
           </table>
         </div>
@@ -1669,12 +1727,19 @@
 
     <!-- HISTORY ADMIN -->
     <div class="admin-page" id="page-history">
-      <div class="admin-page-title">Histori Transaksi</div>
-      <div class="admin-page-desc">Semua riwayat pemesanan</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px">
+        <div>
+          <div class="admin-page-title">Histori Transaksi</div>
+          <div class="admin-page-desc">Semua riwayat pemesanan tersimpan di database</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="exportHistoryCSV()">
+          <i class="fas fa-file-csv"></i> Export CSV
+        </button>
+      </div>
       <div class="admin-card">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>ID</th><th>Nama</th><th>WA</th><th>Kendaraan</th><th>Rute</th><th>Tanggal</th><th>Total</th><th>Status</th></tr></thead>
+            <thead><tr><th>ID Transaksi</th><th>Nama</th><th>No. WA</th><th>Kendaraan</th><th>Rute</th><th>Tgl & Jam</th><th>Total</th><th>Status</th><th>Penumpang</th></tr></thead>
             <tbody id="admin-history-body"></tbody>
           </table>
         </div>
@@ -1696,6 +1761,7 @@ let currentBookingData = null;
 let allRoutes = [];
 let allVehicles = [];
 let allBookings = [];
+let _unsubBookings = null;
 let logoClickCount = 0;
 let logoClickTimer = null;
 
@@ -2002,65 +2068,135 @@ async function submitBooking() {
     return;
   }
 
+  if (!selectedVehicle) {
+    showToast('Pilih kendaraan terlebih dahulu!', 'error');
+    return;
+  }
+
+  // Validasi nomor WA
+  const phoneClean = phone.replace(/\D/g, '');
+  if (phoneClean.length < 9 || phoneClean.length > 15) {
+    showToast('Nomor WhatsApp tidak valid!', 'error');
+    return;
+  }
+
   const routeSel = document.getElementById('booking-route');
   const routeOpt = routeSel.options[routeSel.selectedIndex];
+  // data-nama di-set oleh populateRouteDropdown
   const jarak = parseInt(routeOpt.dataset.jarak) || 0;
-  const routeNama = routeOpt.dataset.nama;
-  const total = jarak * selectedVehicle.harga_per_km;
+  const routeNama = (routeOpt.dataset.nama || '').trim() || routeOpt.text.split('(')[0].trim() || '-';
+  const total = jarak * (selectedVehicle.harga_per_km || 0);
   const txId = generateTxId();
 
+  if (!routeNama || routeNama === '-') {
+    showToast('Data rute tidak valid. Pilih rute yang tersedia!', 'error');
+    return;
+  }
+
+  // Struktur data Firestore konsisten — SEMUA field wajib ada
   const bookingData = {
     tx_id: txId,
     nama: name,
     phone: phone,
-    kendaraan_id: selectedVehicle.id,
-    kendaraan_nama: selectedVehicle.nama,
+    kendaraan_id: selectedVehicle.id || '',
+    kendaraan_nama: selectedVehicle.nama || '',
     rute: routeNama,
+    rute_id: routeId,
     jarak: jarak,
     tanggal: date,
     jam: time,
-    pax: pax,
-    notes: notes,
+    pax: parseInt(pax) || 1,
+    notes: notes || '',
     total_harga: total,
     status: 'pending',
     created_at: new Date().toISOString()
   };
 
+  // Disable tombol agar tidak double submit
+  const submitBtn = document.querySelector('#booking-modal .btn-primary[onclick="submitBooking()"]');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+  }
+
+  const enableBtn = () => {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Konfirmasi Booking';
+    }
+  };
+
   showLoading();
+  console.log('[submitBooking] Memulai proses booking...', bookingData);
+
   try {
     if (window._firebase && window._firebaseReady) {
       const { db, collection, addDoc, serverTimestamp } = window._firebase;
-      // Beri timeout 8 detik agar tidak loading selamanya jika Firebase lambat
-      const savePromise = addDoc(collection(db, 'bookings'), {
+      console.log('[submitBooking] Firebase siap, menyimpan ke Firestore koleksi "bookings"...');
+      console.log('[submitBooking] Payload:', JSON.stringify(bookingData));
+
+      // Simpan ke Firestore — createdAt pakai serverTimestamp untuk real-time ordering
+      const docRef = await addDoc(collection(db, 'bookings'), {
         ...bookingData,
-        server_time: serverTimestamp()
+        createdAt: serverTimestamp()
       });
-      await Promise.race([
-        savePromise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
-      ]);
-      showToast('Booking berhasil! Silakan cek struk Anda.', 'success');
+
+      console.log('[submitBooking] ✅ Booking BERHASIL tersimpan ke Firestore! Doc ID:', docRef.id);
+      bookingData.firestore_id = docRef.id;
+
+      // Tambah ke local state sebagai backup sebelum onSnapshot trigger
+      const existingIdx = allBookings.findIndex(b => b.tx_id === txId);
+      if (existingIdx === -1) {
+        allBookings.unshift({ id: docRef.id, ...bookingData });
+      }
+      showToast('🎉 Booking berhasil! Data tersimpan di database.', 'success');
+
     } else {
       // Mode demo: simpan ke local state
+      console.warn('[submitBooking] Firebase tidak tersedia, mode demo aktif.');
       allBookings.unshift({ id: txId, ...bookingData });
-      showToast('Booking diterima! (Mode demo)', 'success');
+      showToast('Booking diterima! (Mode demo – Firebase tidak terhubung)', 'success');
     }
+
     currentBookingData = bookingData;
     closeModal('booking-modal');
-    showStruk(bookingData);
     resetBookingForm();
+    showStruk(bookingData);
+
+    if (window._currentUser) {
+      updateDashboardStats();
+      renderAdminBookings();
+      renderRecentBookings();
+    }
+
   } catch(e) {
-    console.warn('Firebase gagal, fallback mode demo:', e.message);
-    // Tetap tampilkan struk meskipun Firebase gagal
+    console.error('[submitBooking] ❌ ERROR saat menyimpan ke Firestore:', e.code || '', e.message, e);
+
+    let errMsg = 'Gagal menyimpan ke database.';
+    if (e.code === 'permission-denied' || (e.message && e.message.includes('permission'))) {
+      errMsg = '⛔ Permission denied! Buka Firebase Console → Firestore → Rules, lalu set: allow read, write: if true; untuk koleksi bookings.';
+    } else if (e.message && e.message.includes('offline')) {
+      errMsg = '📶 Tidak ada koneksi internet. Data disimpan sementara.';
+    } else if (e.message) {
+      errMsg = 'Error: ' + e.message;
+    }
+
+    // Tetap tampilkan struk agar user tidak bingung, tapi beri tahu ada error
     currentBookingData = bookingData;
     allBookings.unshift({ id: txId, ...bookingData });
     closeModal('booking-modal');
-    showStruk(bookingData);
-    showToast('Booking diterima! (Mode demo)', 'success');
     resetBookingForm();
+    showStruk(bookingData);
+    showToast('❌ ' + errMsg, 'error');
+
+    if (window._currentUser) {
+      updateDashboardStats();
+      renderAdminBookings();
+      renderRecentBookings();
+    }
   } finally {
-    // Pastikan loading SELALU dihilangkan
     hideLoading();
+    enableBtn();
   }
 }
 
@@ -2190,14 +2326,22 @@ async function adminLogin() {
 }
 
 async function adminLogout() {
+  // Hentikan real-time listener saat logout
+  if (window._unsubBookings) { window._unsubBookings(); window._unsubBookings = null; }
+  if (_unsubBookings) { _unsubBookings(); _unsubBookings = null; }
   if (!window._firebase) {
     document.getElementById('admin-panel').style.display = 'none';
     return;
   }
-  const { auth, signOut } = window._firebase;
-  await signOut(auth);
-  document.getElementById('admin-panel').style.display = 'none';
-  showToast('Logout berhasil', 'success');
+  try {
+    const { auth, signOut } = window._firebase;
+    await signOut(auth);
+    document.getElementById('admin-panel').style.display = 'none';
+    showToast('Logout berhasil', 'success');
+  } catch(e) {
+    document.getElementById('admin-panel').style.display = 'none';
+    showToast('Logout', 'success');
+  }
 }
 
 // ============================================
@@ -2210,11 +2354,21 @@ function showAdminPage(page) {
   document.querySelector(`[data-page="${page}"]`).classList.add('active');
 }
 
+function clearBookingBadge() {
+  const badge = document.getElementById('booking-nav-badge');
+  if (badge) { badge.style.display = 'none'; badge.textContent = '0'; }
+}
+
 // ============================================
 // LOAD ADMIN DATA
 // ============================================
+// ============================================
+// LOAD ADMIN DATA (real-time)
+// ============================================
 window.loadAdminData = async function() {
-  await Promise.all([loadAdminVehicles(), loadAdminRoutes(), loadAdminBookings()]);
+  // Load vehicles & routes sekali (pakai getDocs), booking pakai onSnapshot real-time
+  await Promise.all([loadAdminVehicles(), loadAdminRoutes()]);
+  await loadAdminBookings(); // ini setup onSnapshot, tidak perlu await tapi aman
   updateDashboardStats();
 };
 
@@ -2226,8 +2380,11 @@ async function loadAdminVehicles() {
     allVehicles = [];
     snap.forEach(d => allVehicles.push({ id: d.id, ...d.data() }));
     if (!allVehicles.length) allVehicles = getDemoVehicles();
-  } catch(e) { allVehicles = getDemoVehicles(); }
+  } catch(e) {
+    if (!allVehicles.length) allVehicles = getDemoVehicles();
+  }
   renderAdminVehicles();
+  renderVehicles(allVehicles);
 }
 
 async function loadAdminRoutes() {
@@ -2238,68 +2395,179 @@ async function loadAdminRoutes() {
     allRoutes = [];
     snap.forEach(d => allRoutes.push({ id: d.id, ...d.data() }));
     if (!allRoutes.length) allRoutes = getDemoRoutes();
-  } catch(e) { allRoutes = getDemoRoutes(); }
+  } catch(e) {
+    if (!allRoutes.length) allRoutes = getDemoRoutes();
+  }
   renderAdminRoutes();
+  renderRoutes(allRoutes);
+  populateRouteDropdown(allRoutes);
 }
 
 async function loadAdminBookings() {
+  // Jika sudah ada listener aktif, hentikan dulu
+  if (_unsubBookings) { _unsubBookings(); _unsubBookings = null; }
+
+  if (!window._firebase) {
+    console.warn('[loadAdminBookings] Firebase tidak tersedia, mode demo.');
+    renderAdminBookings();
+    renderRecentBookings();
+    updateDashboardStats();
+    return;
+  }
+
   try {
-    if (!window._firebase) throw new Error('no firebase');
-    const { db, collection, getDocs, query, orderBy } = window._firebase;
-    const q = query(collection(db, 'bookings'), orderBy('created_at', 'desc'));
-    const snap = await getDocs(q);
-    allBookings = [];
-    snap.forEach(d => allBookings.push({ id: d.id, ...d.data() }));
-  } catch(e) { /* allBookings tetap seperti sekarang */ }
-  renderAdminBookings();
-  renderRecentBookings();
+    const { db, collection, query, orderBy, onSnapshot } = window._firebase;
+    // PENTING: Jika ada dokumen lama tanpa field 'createdAt', query orderBy akan gagal.
+    // Gunakan query tanpa orderBy, lalu sort secara manual di JS berdasarkan created_at (ISO string).
+    const q = query(collection(db, 'bookings'));
+
+    console.log('[loadAdminBookings] ✅ Memulai onSnapshot real-time listener pada koleksi "bookings"...');
+
+    let isFirstLoad = true;
+    let prevCount = 0;
+    let newBookingCount = 0;
+
+    _unsubBookings = onSnapshot(q, (snap) => {
+      const newBookings = [];
+      snap.forEach(d => {
+        const data = d.data();
+        // Normalisasi field agar konsisten apapun versi data di Firestore
+        newBookings.push({
+          id: d.id,
+          tx_id: data.tx_id || data.id || d.id,
+          nama: data.nama || data.name || '-',
+          phone: data.phone || '-',
+          kendaraan_nama: data.kendaraan_nama || data.vehicle || '-',
+          rute: data.rute || data.route || '-',
+          tanggal: data.tanggal || data.date || '-',
+          jam: data.jam || data.time || '-',
+          pax: data.pax || 1,
+          jarak: data.jarak || 0,
+          total_harga: data.total_harga || data.total || 0,
+          status: data.status || 'pending',
+          notes: data.notes || '',
+          created_at: data.created_at || '',
+          createdAt: data.createdAt || null,
+          ...data  // spread aslinya juga agar tidak ada yang hilang
+        });
+      });
+
+      // Sort manual: terbaru di atas — gunakan created_at ISO string sebagai fallback
+      newBookings.sort((a, b) => {
+        // Prioritaskan createdAt (Firestore Timestamp), fallback ke created_at (ISO string)
+        const ta = a.createdAt?.toMillis?.() || new Date(a.created_at || 0).getTime();
+        const tb = b.createdAt?.toMillis?.() || new Date(b.created_at || 0).getTime();
+        return tb - ta;
+      });
+
+      console.log(`[loadAdminBookings] Snapshot diterima: ${newBookings.length} booking.`);
+
+      // Deteksi booking baru (bukan saat pertama load)
+      if (!isFirstLoad && newBookings.length > prevCount) {
+        const diff = newBookings.length - prevCount;
+        newBookingCount += diff;
+        showToast(`🔔 ${diff} booking baru masuk!`, 'success');
+        // Update badge di nav
+        const badge = document.getElementById('booking-nav-badge');
+        if (badge) { badge.style.display = 'flex'; badge.textContent = newBookingCount; }
+        // Highlight baris baru di tabel jika halaman booking aktif
+        setTimeout(() => {
+          const rows = document.querySelectorAll('#admin-bookings-body tr');
+          for (let i = 0; i < diff && i < rows.length; i++) {
+            rows[i].classList.add('new-booking-row');
+          }
+        }, 300);
+      }
+
+      prevCount = newBookings.length;
+      isFirstLoad = false;
+
+      allBookings = newBookings;
+      renderAdminBookings();
+      renderRecentBookings();
+      updateDashboardStats();
+    }, (err) => {
+      console.error('[loadAdminBookings] ❌ onSnapshot error:', err.code, err.message);
+      if (err.code === 'permission-denied') {
+        showToast('❌ Permission denied! Periksa Firestore Rules untuk koleksi "bookings".', 'error');
+      } else {
+        showToast('Gagal memuat data booking: ' + err.message, 'error');
+      }
+      renderAdminBookings();
+      renderRecentBookings();
+      updateDashboardStats();
+    });
+  } catch(e) {
+    console.error('[loadAdminBookings] ❌ Error setup listener:', e.message);
+    renderAdminBookings();
+    renderRecentBookings();
+    updateDashboardStats();
+  }
 }
 
 function updateDashboardStats() {
-  document.getElementById('stat-vehicles').textContent = allVehicles.length;
-  document.getElementById('stat-bookings').textContent = allBookings.length;
-  document.getElementById('stat-routes').textContent = allRoutes.length;
-  document.getElementById('stat-pending').textContent = allBookings.filter(b => b.status === 'pending').length;
+  const el = (id) => document.getElementById(id);
+  if (el('stat-vehicles')) el('stat-vehicles').textContent = allVehicles.length;
+  if (el('stat-bookings')) el('stat-bookings').textContent = allBookings.length;
+  if (el('stat-routes')) el('stat-routes').textContent = allRoutes.length;
+  if (el('stat-pending')) el('stat-pending').textContent = allBookings.filter(b => b.status === 'pending').length;
+  // Hitung total omzet dari booking confirmed
+  const revenue = allBookings.filter(b => b.status === 'confirmed').reduce((acc, b) => acc + (b.total_harga || 0), 0);
+  if (el('stat-revenue')) el('stat-revenue').textContent = formatRp(revenue);
 }
 
 function renderAdminVehicles() {
   const tbody = document.getElementById('admin-vehicles-body');
-  if (!allVehicles.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fas fa-car"></i><p>Belum ada kendaraan</p></td></tr>'; return; }
-  tbody.innerHTML = allVehicles.map(v => `
+  if (!tbody) return;
+  if (!allVehicles.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-car" style="font-size:32px;display:block;margin-bottom:10px"></i><p>Belum ada kendaraan</p></td></tr>';
+    return;
+  }
+  tbody.innerHTML = allVehicles.map(v => {
+    const safeId = (v.id || '').replace(/'/g, "\\'");
+    return `
     <tr>
-      <td><div style="width:50px;height:40px;border-radius:8px;background:var(--bg-secondary);display:flex;align-items:center;justify-content:center;font-size:20px">
-        ${v.gambar ? `<img src="${v.gambar}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" />` : vehicleEmoji[v.tipe] || '🚗'}
-      </div></td>
-      <td><strong>${v.nama}</strong></td>
-      <td>${v.kapasitas} orang</td>
-      <td>${formatRp(v.harga_per_km)}</td>
-      <td><span class="status-badge status-confirmed">${v.tipe}</span></td>
       <td>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-outline btn-sm" onclick="editVehicle('${v.id}')"><i class="fas fa-edit"></i></button>
-          <button class="btn btn-danger btn-sm" onclick="deleteVehicle('${v.id}')"><i class="fas fa-trash"></i></button>
+        <div style="width:50px;height:40px;border-radius:8px;background:var(--bg-secondary);display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden">
+          ${v.gambar ? `<img src="${v.gambar}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.style.display='none'" />` : (vehicleEmoji[v.tipe] || '🚗')}
         </div>
       </td>
-    </tr>
-  `).join('');
+      <td><strong>${v.nama || '-'}</strong><br><span style="font-size:11px;color:var(--text-muted)">${v.desc || ''}</span></td>
+      <td>${v.kapasitas || '-'} orang</td>
+      <td>${formatRp(v.harga_per_km || 0)}/km</td>
+      <td><span class="status-badge status-confirmed">${(v.tipe || '-').toUpperCase()}</span></td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-sm" onclick="editVehicle('${safeId}')" title="Edit"><i class="fas fa-edit"></i> Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteVehicle('${safeId}')" title="Hapus"><i class="fas fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 function renderAdminRoutes() {
   const tbody = document.getElementById('admin-routes-body');
-  if (!allRoutes.length) { tbody.innerHTML = '<tr><td colspan="4">Belum ada rute</td></tr>'; return; }
-  tbody.innerHTML = allRoutes.map(r => `
+  if (!tbody) return;
+  if (!allRoutes.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-route" style="font-size:32px;display:block;margin-bottom:10px"></i><p>Belum ada rute</p></td></tr>';
+    return;
+  }
+  tbody.innerHTML = allRoutes.map(r => {
+    const safeId = (r.id || '').replace(/'/g, "\\'");
+    return `
     <tr>
-      <td><strong>${r.nama_rute}</strong></td>
-      <td>${r.jarak} km</td>
+      <td><strong>${r.nama_rute || '-'}</strong></td>
+      <td>${r.jarak || 0} km</td>
       <td>${r.harga ? formatRp(r.harga) : '-'}</td>
       <td>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-outline btn-sm" onclick="editRoute('${r.id}')"><i class="fas fa-edit"></i></button>
-          <button class="btn btn-danger btn-sm" onclick="deleteRoute('${r.id}')"><i class="fas fa-trash"></i></button>
+          <button class="btn btn-outline btn-sm" onclick="editRoute('${safeId}')" title="Edit"><i class="fas fa-edit"></i> Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteRoute('${safeId}')" title="Hapus"><i class="fas fa-trash"></i></button>
         </div>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 function renderAdminBookings() {
@@ -2307,58 +2575,116 @@ function renderAdminBookings() {
   const tbody2 = document.getElementById('admin-history-body');
 
   if (!allBookings.length) {
-    const empty = '<tr><td colspan="8">Belum ada booking</td></tr>';
-    tbody.innerHTML = empty; tbody2.innerHTML = empty; return;
+    const empty = '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-calendar-times" style="font-size:32px;display:block;margin-bottom:10px"></i><p>Belum ada data booking</p></td></tr>';
+    const emptyHist = '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-history" style="font-size:32px;display:block;margin-bottom:10px"></i><p>Belum ada histori transaksi</p></td></tr>';
+    if (tbody) tbody.innerHTML = empty;
+    if (tbody2) tbody2.innerHTML = emptyHist;
+    return;
   }
 
-  const rows = allBookings.map(b => `
-    <tr>
-      <td style="font-size:11px;font-family:monospace">${b.tx_id || b.id}</td>
-      <td>${b.nama}</td>
-      <td>${b.kendaraan_nama || '-'}</td>
-      <td>${b.rute}</td>
-      <td>${b.tanggal}</td>
-      <td>${formatRp(b.total_harga)}</td>
-      <td><span class="status-badge status-${b.status || 'pending'}">${b.status || 'pending'}</span></td>
-      <td>
-        <select class="form-control" style="font-size:12px;padding:4px 8px;width:130px" onchange="updateBookingStatus('${b.id}', this.value)">
-          <option value="pending" ${b.status==='pending'?'selected':''}>Menunggu</option>
-          <option value="confirmed" ${b.status==='confirmed'?'selected':''}>Dikonfirmasi</option>
-          <option value="cancelled" ${b.status==='cancelled'?'selected':''}>Dibatalkan</option>
-        </select>
-      </td>
-    </tr>
-  `).join('');
+  const statusLabel = { pending: 'Menunggu', confirmed: 'Dikonfirmasi', cancelled: 'Dibatalkan' };
 
-  tbody.innerHTML = rows;
-  tbody2.innerHTML = allBookings.map(b => `
-    <tr>
-      <td style="font-size:11px;font-family:monospace">${b.tx_id || b.id}</td>
-      <td>${b.nama}</td>
-      <td>${b.phone}</td>
-      <td>${b.kendaraan_nama || '-'}</td>
-      <td>${b.rute}</td>
-      <td>${b.tanggal}</td>
-      <td>${formatRp(b.total_harga)}</td>
-      <td><span class="status-badge status-${b.status || 'pending'}">${b.status || 'pending'}</span></td>
-    </tr>
-  `).join('');
+  // Helper: ambil field dengan fallback aman
+  const f = (b, ...keys) => {
+    for (const k of keys) {
+      if (b[k] !== undefined && b[k] !== null && b[k] !== '') return b[k];
+    }
+    return '-';
+  };
+
+  // Tabel Booking (manajemen)
+  if (tbody) {
+    tbody.innerHTML = allBookings.map(b => {
+      const nama   = f(b, 'nama', 'name');
+      const phone  = f(b, 'phone');
+      const kend   = f(b, 'kendaraan_nama', 'vehicle', 'kendaraan');
+      const rute   = f(b, 'rute', 'route');
+      const tgl    = f(b, 'tanggal', 'date');
+      const total  = Number(b.total_harga || b.total || 0);
+      const status = b.status || 'pending';
+      const txId   = b.tx_id || b.id || '-';
+      return `
+        <tr id="booking-row-${b.id}">
+          <td style="font-size:11px;font-family:monospace;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${txId}">${txId}</td>
+          <td><strong>${nama}</strong><br><span style="font-size:11px;color:var(--text-muted)">${phone}</span></td>
+          <td>${kend}</td>
+          <td>${rute}</td>
+          <td>${tgl}</td>
+          <td><strong>${formatRp(total)}</strong></td>
+          <td><span class="status-badge status-${status}" id="status-badge-${b.id}">${statusLabel[status] || status}</span></td>
+          <td>
+            <select class="form-control" style="font-size:12px;padding:4px 8px;width:130px" onchange="updateBookingStatus('${b.id}', this.value)">
+              <option value="pending" ${status === 'pending' ? 'selected' : ''}>Menunggu</option>
+              <option value="confirmed" ${status === 'confirmed' ? 'selected' : ''}>Dikonfirmasi</option>
+              <option value="cancelled" ${status === 'cancelled' ? 'selected' : ''}>Dibatalkan</option>
+            </select>
+          </td>
+          <td>
+            <button class="btn btn-danger btn-sm" onclick="deleteBooking('${b.id}')" title="Hapus booking">
+              <i class="fas fa-trash"></i>
+            </button>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  // Tabel Histori (read-only lengkap)
+  if (tbody2) {
+    tbody2.innerHTML = allBookings.map(b => {
+      const nama   = f(b, 'nama', 'name');
+      const phone  = f(b, 'phone');
+      const kend   = f(b, 'kendaraan_nama', 'vehicle', 'kendaraan');
+      const rute   = f(b, 'rute', 'route');
+      const tgl    = f(b, 'tanggal', 'date');
+      const jam    = f(b, 'jam', 'time');
+      const total  = Number(b.total_harga || b.total || 0);
+      const status = b.status || 'pending';
+      const txId   = b.tx_id || b.id || '-';
+      const pax    = b.pax || '-';
+      const waNum  = phone.replace(/\D/g, '');
+      return `
+        <tr>
+          <td style="font-size:11px;font-family:monospace;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${txId}">${txId}</td>
+          <td><strong>${nama}</strong></td>
+          <td><a href="https://wa.me/${waNum}" target="_blank" style="color:var(--primary)">${phone}</a></td>
+          <td>${kend}</td>
+          <td>${rute}</td>
+          <td>${tgl}${jam !== '-' ? ' ' + jam + ' WIB' : ''}</td>
+          <td><strong>${formatRp(total)}</strong></td>
+          <td><span class="status-badge status-${status}">${statusLabel[status] || status}</span></td>
+          <td style="font-size:11px;color:var(--text-muted)">${pax !== '-' ? pax + ' org' : '-'}</td>
+        </tr>`;
+    }).join('');
+  }
 }
 
 function renderRecentBookings() {
   const tbody = document.getElementById('recent-bookings-body');
+  if (!tbody) return;
   const recent = allBookings.slice(0, 5);
-  if (!recent.length) { tbody.innerHTML = '<tr><td colspan="6">Belum ada booking</td></tr>'; return; }
-  tbody.innerHTML = recent.map(b => `
-    <tr>
-      <td style="font-size:11px;font-family:monospace">${(b.tx_id || b.id).slice(0,12)}...</td>
-      <td>${b.nama}</td>
-      <td>${b.rute}</td>
-      <td>${b.tanggal}</td>
-      <td>${formatRp(b.total_harga)}</td>
-      <td><span class="status-badge status-${b.status || 'pending'}">${b.status || 'pending'}</span></td>
-    </tr>
-  `).join('');
+  const statusLabel = { pending: 'Menunggu', confirmed: 'Dikonfirmasi', cancelled: 'Dibatalkan' };
+  if (!recent.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">Belum ada booking</td></tr>';
+    return;
+  }
+  const f = (b, ...keys) => { for (const k of keys) { if (b[k] !== undefined && b[k] !== null && b[k] !== '') return b[k]; } return '-'; };
+  tbody.innerHTML = recent.map(b => {
+    const txId  = f(b, 'tx_id', 'id');
+    const nama  = f(b, 'nama', 'name');
+    const rute  = f(b, 'rute', 'route');
+    const tgl   = f(b, 'tanggal', 'date');
+    const total = Number(b.total_harga || b.total || 0);
+    const status= b.status || 'pending';
+    return `
+      <tr>
+        <td style="font-size:11px;font-family:monospace">${txId.toString().slice(0,15)}${txId.length > 15 ? '...' : ''}</td>
+        <td><strong>${nama}</strong></td>
+        <td>${rute}</td>
+        <td>${tgl}</td>
+        <td><strong>${formatRp(total)}</strong></td>
+        <td><span class="status-badge status-${status}">${statusLabel[status] || status}</span></td>
+      </tr>`;
+  }).join('');
 }
 
 // ============================================
@@ -2368,14 +2694,90 @@ async function updateBookingStatus(bookingId, status) {
   try {
     if (window._firebase) {
       const { db, doc, updateDoc } = window._firebase;
-      await updateDoc(doc(db, 'bookings', bookingId), { status });
+      await updateDoc(doc(db, 'bookings', bookingId), { status, updated_at: new Date().toISOString() });
     }
+    // Update local state
     const idx = allBookings.findIndex(b => b.id === bookingId);
     if (idx !== -1) allBookings[idx].status = status;
-    showToast('Status booking diperbarui', 'success');
+    // Update badge langsung tanpa re-render seluruh tabel
+    const badge = document.getElementById(`status-badge-${bookingId}`);
+    const statusLabel = { pending: 'Menunggu', confirmed: 'Dikonfirmasi', cancelled: 'Dibatalkan' };
+    if (badge) {
+      badge.className = `status-badge status-${status}`;
+      badge.textContent = statusLabel[status] || status;
+    }
     updateDashboardStats();
     renderRecentBookings();
-  } catch(e) { showToast('Gagal update status (mode demo)', 'error'); }
+    const icons = { pending: '⏳', confirmed: '✅', cancelled: '❌' };
+    showToast(`${icons[status] || '•'} Status diperbarui: ${statusLabel[status]}`, 'success');
+  } catch(e) {
+    showToast('Gagal update status: ' + e.message, 'error');
+  }
+}
+
+// ============================================
+// RESET ALL BOOKINGS (Hapus semua data booking)
+// ============================================
+async function resetAllBookings() {
+  if (!confirm('⚠️ PERHATIAN!\n\nIni akan menghapus SEMUA data booking dari database secara permanen.\n\nYakin ingin melanjutkan?')) return;
+  if (!confirm('🔴 Konfirmasi terakhir!\n\nSemua histori booking akan DIHAPUS dan tidak dapat dikembalikan.\n\nLanjutkan?')) return;
+
+  showLoading();
+  console.log('[resetAllBookings] Memulai reset semua booking...');
+
+  try {
+    if (window._firebase) {
+      const { db, collection, getDocs, doc, deleteDoc } = window._firebase;
+      const snap = await getDocs(collection(db, 'bookings'));
+      const deletePromises = [];
+      snap.forEach(d => {
+        console.log('[resetAllBookings] Menghapus doc:', d.id);
+        deletePromises.push(deleteDoc(doc(db, 'bookings', d.id)));
+      });
+      await Promise.all(deletePromises);
+      console.log(`[resetAllBookings] ✅ Berhasil menghapus ${deletePromises.length} dokumen booking.`);
+      showToast(`✅ Reset selesai! ${deletePromises.length} data booking dihapus.`, 'success');
+    } else {
+      // Mode demo
+      const count = allBookings.length;
+      allBookings = [];
+      showToast(`Reset selesai! ${count} data booking dihapus (mode demo).`, 'success');
+    }
+
+    allBookings = [];
+    renderAdminBookings();
+    renderRecentBookings();
+    updateDashboardStats();
+
+  } catch(e) {
+    console.error('[resetAllBookings] ❌ Error:', e.message);
+    showToast('Gagal reset data: ' + e.message, 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+// ============================================
+// DELETE BOOKING
+// ============================================
+async function deleteBooking(bookingId) {
+  if (!confirm('Hapus booking ini dari database?')) return;
+  showLoading();
+  try {
+    if (window._firebase) {
+      const { db, doc, deleteDoc } = window._firebase;
+      await deleteDoc(doc(db, 'bookings', bookingId));
+    }
+    allBookings = allBookings.filter(b => b.id !== bookingId);
+    renderAdminBookings();
+    renderRecentBookings();
+    updateDashboardStats();
+    showToast('Booking berhasil dihapus!', 'success');
+  } catch(e) {
+    showToast('Gagal hapus booking: ' + e.message, 'error');
+  } finally {
+    hideLoading();
+  }
 }
 
 // ============================================
@@ -2415,20 +2817,31 @@ async function saveVehicle() {
   const fileInput = document.getElementById('v-gambar');
   const editId = document.getElementById('vehicle-edit-id').value;
 
-  if (!nama || !kapasitas || !harga) { showToast('Lengkapi semua field!', 'error'); return; }
+  if (!nama || !kapasitas || !harga) { showToast('Lengkapi semua field yang wajib!', 'error'); return; }
+  if (parseInt(kapasitas) < 1) { showToast('Kapasitas harus minimal 1!', 'error'); return; }
+  if (parseInt(harga) < 100) { showToast('Harga per km tidak valid!', 'error'); return; }
 
   showLoading();
   try {
     let gambarUrl = '';
 
-    if (fileInput.files[0] && window._firebase) {
-      const { storage, ref, uploadBytes, getDownloadURL } = window._firebase;
-      const storageRef = ref(storage, `vehicles/${Date.now()}_${fileInput.files[0].name}`);
-      const snapshot = await uploadBytes(storageRef, fileInput.files[0]);
-      gambarUrl = await getDownloadURL(snapshot.ref);
-    } else if (editId) {
+    // Pertahankan gambar lama saat edit
+    if (editId) {
       const existing = allVehicles.find(v => v.id === editId);
       gambarUrl = existing?.gambar || '';
+    }
+
+    // Upload gambar baru jika ada
+    if (fileInput.files && fileInput.files[0] && window._firebase) {
+      try {
+        const { storage, ref, uploadBytes, getDownloadURL } = window._firebase;
+        const storageRef = ref(storage, `vehicles/${Date.now()}_${fileInput.files[0].name}`);
+        const snapshot = await uploadBytes(storageRef, fileInput.files[0]);
+        gambarUrl = await getDownloadURL(snapshot.ref);
+      } catch(uploadErr) {
+        console.warn('Upload gambar gagal:', uploadErr.message);
+        showToast('Upload gambar gagal, kendaraan disimpan tanpa gambar', 'error');
+      }
     }
 
     const data = { nama, kapasitas: parseInt(kapasitas), harga_per_km: parseInt(harga), tipe, desc, gambar: gambarUrl };
@@ -2439,20 +2852,20 @@ async function saveVehicle() {
         await updateDoc(doc(db, 'vehicles', editId), data);
         const idx = allVehicles.findIndex(v => v.id === editId);
         if (idx !== -1) allVehicles[idx] = { id: editId, ...data };
-        showToast('Kendaraan berhasil diperbarui!', 'success');
+        showToast('✅ Kendaraan berhasil diperbarui!', 'success');
       } else {
         const docRef = await addDoc(collection(db, 'vehicles'), data);
         allVehicles.push({ id: docRef.id, ...data });
-        showToast('Kendaraan berhasil ditambahkan!', 'success');
+        showToast('✅ Kendaraan berhasil ditambahkan!', 'success');
       }
     } else {
       // Mode demo
-      const demoData = { id: editId || `demo_${Date.now()}`, ...data };
+      const demoId = editId || `demo_${Date.now()}`;
       if (editId) {
         const idx = allVehicles.findIndex(v => v.id === editId);
-        if (idx !== -1) allVehicles[idx] = demoData;
+        if (idx !== -1) allVehicles[idx] = { id: editId, ...data };
       } else {
-        allVehicles.push(demoData);
+        allVehicles.push({ id: demoId, ...data });
       }
       showToast('Kendaraan disimpan (mode demo)', 'success');
     }
@@ -2462,35 +2875,29 @@ async function saveVehicle() {
     renderVehicles(allVehicles);
     updateDashboardStats();
   } catch(e) {
-    const demoData = { id: `demo_${Date.now()}`, nama, kapasitas: parseInt(kapasitas), harga_per_km: parseInt(harga), tipe, desc, gambar: '' };
-    if (editId) {
-      const idx = allVehicles.findIndex(v => v.id === editId);
-      if (idx !== -1) allVehicles[idx] = { ...demoData, id: editId };
-    } else { allVehicles.push(demoData); }
-    closeModal('admin-vehicle-modal');
-    renderAdminVehicles();
-    renderVehicles(allVehicles);
-    showToast('Kendaraan disimpan (mode demo)', 'success');
+    console.error('saveVehicle error:', e);
+    showToast('Gagal menyimpan kendaraan: ' + e.message, 'error');
   } finally {
     hideLoading();
   }
 }
 
 async function deleteVehicle(id) {
-  if (!confirm('Hapus kendaraan ini?')) return;
+  if (!confirm('Hapus kendaraan ini dari database?')) return;
   showLoading();
   try {
     if (window._firebase) {
       const { db, doc, deleteDoc } = window._firebase;
       await deleteDoc(doc(db, 'vehicles', id));
     }
-    showToast('Kendaraan dihapus!', 'success');
-  } catch(e) { showToast('Dihapus (mode demo)', 'success'); }
-  finally {
     allVehicles = allVehicles.filter(v => v.id !== id);
     renderAdminVehicles();
     renderVehicles(allVehicles);
     updateDashboardStats();
+    showToast('✅ Kendaraan berhasil dihapus!', 'success');
+  } catch(e) {
+    showToast('Gagal hapus kendaraan: ' + e.message, 'error');
+  } finally {
     hideLoading();
   }
 }
@@ -2522,6 +2929,7 @@ async function saveRoute() {
   const harga = document.getElementById('r-harga').value;
   const editId = document.getElementById('route-edit-id').value;
   if (!nama || !jarak) { showToast('Nama rute dan jarak wajib diisi!', 'error'); return; }
+  if (parseInt(jarak) < 1) { showToast('Jarak harus lebih dari 0 km!', 'error'); return; }
 
   showLoading();
   const data = { nama_rute: nama, jarak: parseInt(jarak), harga: harga ? parseInt(harga) : 0 };
@@ -2532,11 +2940,11 @@ async function saveRoute() {
         await updateDoc(doc(db, 'routes', editId), data);
         const idx = allRoutes.findIndex(r => r.id === editId);
         if (idx !== -1) allRoutes[idx] = { id: editId, ...data };
-        showToast('Rute diperbarui!', 'success');
+        showToast('✅ Rute berhasil diperbarui!', 'success');
       } else {
         const docRef = await addDoc(collection(db, 'routes'), data);
         allRoutes.push({ id: docRef.id, ...data });
-        showToast('Rute ditambahkan!', 'success');
+        showToast('✅ Rute berhasil ditambahkan!', 'success');
       }
     } else {
       if (editId) {
@@ -2545,36 +2953,35 @@ async function saveRoute() {
       } else { allRoutes.push({ id: `r_${Date.now()}`, ...data }); }
       showToast('Rute disimpan (mode demo)', 'success');
     }
-  } catch(e) {
-    if (editId) {
-      const idx = allRoutes.findIndex(r => r.id === editId);
-      if (idx !== -1) allRoutes[idx] = { id: editId, ...data };
-    } else { allRoutes.push({ id: `r_${Date.now()}`, ...data }); }
-    showToast('Rute disimpan (mode demo)', 'success');
-  } finally {
     closeModal('admin-route-modal');
     renderAdminRoutes();
     renderRoutes(allRoutes);
     populateRouteDropdown(allRoutes);
     updateDashboardStats();
+  } catch(e) {
+    showToast('Gagal menyimpan rute: ' + e.message, 'error');
+  } finally {
     hideLoading();
   }
 }
 
 async function deleteRoute(id) {
-  if (!confirm('Hapus rute ini?')) return;
+  if (!confirm('Hapus rute ini dari database?')) return;
   showLoading();
   try {
     if (window._firebase) {
       const { db, doc, deleteDoc } = window._firebase;
       await deleteDoc(doc(db, 'routes', id));
     }
-    showToast('Rute dihapus!', 'success');
-  } catch(e) { showToast('Dihapus (mode demo)', 'success'); }
-  finally {
     allRoutes = allRoutes.filter(r => r.id !== id);
-    renderAdminRoutes(); renderRoutes(allRoutes); populateRouteDropdown(allRoutes);
+    renderAdminRoutes();
+    renderRoutes(allRoutes);
+    populateRouteDropdown(allRoutes);
     updateDashboardStats();
+    showToast('✅ Rute berhasil dihapus!', 'success');
+  } catch(e) {
+    showToast('Gagal hapus rute: ' + e.message, 'error');
+  } finally {
     hideLoading();
   }
 }
@@ -2595,9 +3002,37 @@ function previewImage(input) {
 }
 
 // ============================================
-// INIT
+// EXPORT CSV
 // ============================================
-// INIT - Tunggu Firebase module siap
+function exportHistoryCSV() {
+  if (!allBookings.length) { showToast('Tidak ada data untuk diekspor', 'error'); return; }
+  const headers = ['ID Transaksi','Nama','No WA','Kendaraan','Rute','Tanggal','Jam','Penumpang','Total','Status','Catatan'];
+  const rows = allBookings.map(b => [
+    b.tx_id || b.id,
+    b.nama,
+    b.phone,
+    b.kendaraan_nama || '',
+    b.rute || '',
+    b.tanggal || '',
+    b.jam || '',
+    b.pax || '',
+    b.total_harga || 0,
+    b.status || 'pending',
+    (b.notes || '').replace(/,/g, ';')
+  ]);
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `histori-booking-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Data berhasil diekspor!', 'success');
+}
+
+// ============================================
+// INIT
 // ============================================
 function initApp() {
   loadVehicles();
@@ -2608,9 +3043,7 @@ window.addEventListener('firebaseReady', initApp, { once: true });
 
 // Fallback: jika event tidak datang dalam 4 detik, jalankan mode demo
 setTimeout(() => {
-  if (!window._firebase && window._firebaseReady === undefined) {
-    window._firebase = null;
-    window._firebaseReady = false;
+  if (typeof allVehicles !== 'undefined' && allVehicles.length === 0) {
     initApp();
   }
 }, 4000);

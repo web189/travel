@@ -1077,6 +1077,57 @@
       .modal { padding: 20px; border-radius: 20px; }
       .navbar { padding: 0 16px; }
     }
+	
+	
+	/* ================================
+   DEVELOPER LINK (LAMPU KONSLET)
+================================ */
+.developer-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-weight: 600;
+  text-decoration: none;
+  color: #FFD700;
+  position: relative;
+  animation: flicker 2s infinite;
+}
+
+/* efek lampu kedip */
+@keyframes flicker {
+  0%, 18%, 22%, 25%, 53%, 57%, 100% {
+    opacity: 1;
+    text-shadow:
+      0 0 5px #FFD700,
+      0 0 10px #FFD700,
+      0 0 20px #FFA500,
+      0 0 40px #FFA500;
+  }
+  20%, 24%, 55% {
+    opacity: 0.3;
+    text-shadow: none;
+  }
+}
+
+/* hover makin "ngejreng" */
+.developer-link:hover {
+  animation: flicker-fast 0.5s infinite;
+}
+
+@keyframes flicker-fast {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+/* MODE TERANG */
+[data-theme="light"] .developer-link {
+  color: #ff9800;
+}
+
+/* MODE GELAP */
+[data-theme="dark"] .developer-link {
+  color: #FFD700;
+}
+	
   </style>
 </head>
 <body>
@@ -1270,7 +1321,7 @@
       <p class="footer-brand-desc">Layanan sewa mobil dan travel terpercaya di Cianjur dan sekitarnya. Beroperasi sejak 2015, melayani ribuan penumpang dengan aman dan nyaman.</p>
       <div style="display:flex;gap:10px">
         <a href="https://wa.me/6281310291545" style="color:rgba(255,255,255,0.6);font-size:20px;transition:color 0.25s" onmouseover="this.style.color='#25D366'" onmouseout="this.style.color='rgba(255,255,255,0.6)'"><i class="fab fa-whatsapp"></i></a>
-        <a href="#" style="color:rgba(255,255,255,0.6);font-size:20px"><i class="fab fa-instagram"></i></a>
+        <a href="https://www.instagram.com/benyoriki?igsh=cGZkOXpuN2JyYjAy" style="color:rgba(255,255,255,0.6);font-size:20px"><i class="fab fa-instagram"></i></a>
         <a href="#" style="color:rgba(255,255,255,0.6);font-size:20px"><i class="fab fa-facebook"></i></a>
       </div>
     </div>
@@ -1293,9 +1344,15 @@
       </ul>
     </div>
   </div>
-  <div class="footer-bottom">
-    <p>© 2025 CianjurTravel. Semua hak dilindungi. Dibuat dengan ❤️ di Cianjur.</p>
-  </div>
+<div class="footer-bottom">
+  <p>
+    © 2025 CianjurTravel. Semua hak dilindungi. Dibuat dengan ❤️ di Cianjur.
+    <br>
+    <a href="https://benyoriki.com/" target="_blank" class="developer-link">
+      ⚡ website developer Riki Hermawan S.Kom
+    </a>
+  </p>
+</div> 
 </footer>
 
 <!-- ================================
@@ -1441,7 +1498,7 @@
         </div>
         <div class="struk-footer">
           <p>Terima kasih telah mempercayai CianjurTravel</p>
-          <p>📞 0813-1029-1545 | Cianjur, Jawa Barat</p>
+          <p>📞 0813-1029-1545 | https://benyoriki.com</p>
         </div>
       </div>
 
@@ -3138,6 +3195,9 @@ document.querySelectorAll('.step-card, .route-card').forEach(el => {
   el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
   observer.observe(el);
 });
+
+
+
 </script>
 
 </body>

@@ -47,31 +47,13 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDocs, getDoc, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+    import {
+      getFirestore, collection, addDoc, getDocs, getDoc,
+      doc, updateDoc, deleteDoc, query, orderBy,
+      serverTimestamp, onSnapshot
+    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
-    // ============================
-    // 🔥 FIREBASE CONFIG
-    // ============================
-    // PENTING: Pastikan Firestore Rules mengizinkan read/write pada koleksi "bookings"
-    // Gunakan rules berikut di Firebase Console → Firestore → Rules:
-    //
-    // rules_version = '2';
-    // service cloud.firestore {
-    //   match /databases/{database}/documents {
-    //     match /bookings/{docId} {
-    //       allow read, write: if true;  // publik untuk booking
-    //     }
-    //     match /vehicles/{docId} {
-    //       allow read: if true;
-    //       allow write: if request.auth != null;
-    //     }
-    //     match /routes/{docId} {
-    //       allow read: if true;
-    //       allow write: if request.auth != null;
-    //     }
-    //   }
-    // }
     const firebaseConfig = {
       apiKey: "AIzaSyDob31dYJSt8IbNTEI4Ex4mvf3G9odHH-w",
       authDomain: "travel-933b6.firebaseapp.com",
@@ -95,7 +77,7 @@
         collection, addDoc, getDocs, getDoc, doc, updateDoc, deleteDoc,
         query, orderBy, serverTimestamp, onSnapshot,
         signInWithEmailAndPassword, signOut, onAuthStateChanged,
-        ref, uploadBytes, getDownloadURL, deleteObject
+        ref: storageRef, uploadBytes, getDownloadURL, deleteObject
       };
       window._firebaseReady = true;
 
@@ -1541,14 +1523,18 @@
         <textarea class="form-control" id="v-desc" rows="2" placeholder="Fitur unggulan kendaraan..."></textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">Gambar Kendaraan</label>
-        <div class="upload-area" id="upload-area" onclick="document.getElementById('v-gambar').click()">
-          <i class="fas fa-cloud-upload-alt"></i>
-          <p>Klik untuk upload gambar</p>
-          <p style="font-size:11px;margin-top:4px">JPG, PNG, WebP – Max 5MB</p>
-          <img id="upload-preview" class="upload-preview" alt="Preview" />
+        <label class="form-label"><i class="fas fa-link" style="margin-right:6px;color:var(--primary)"></i>Link Gambar (URL)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="url" class="form-control" id="v-gambar-url" placeholder="https://contoh.com/gambar-mobil.jpg" oninput="previewImageUrl(this.value)" style="flex:1" />
+          <button type="button" class="btn btn-outline btn-sm" onclick="previewImageUrl(document.getElementById('v-gambar-url').value)" title="Preview gambar" style="flex-shrink:0">
+            <i class="fas fa-eye"></i>
+          </button>
         </div>
-        <input type="file" id="v-gambar" accept="image/*" style="display:none" onchange="previewImage(this)" />
+        <p style="font-size:11px;color:var(--text-muted);margin-top:6px"><i class="fas fa-info-circle"></i> Masukkan URL gambar dari internet (Google Images, ibb.co, imgur, dll)</p>
+        <div id="upload-preview-wrap" style="margin-top:10px;display:none">
+          <img id="upload-preview" class="upload-preview" alt="Preview" style="display:block;max-width:100%;max-height:160px;border-radius:10px;border:2px solid var(--border);object-fit:cover" />
+          <p id="preview-status" style="font-size:11px;margin-top:4px;color:var(--success)"><i class="fas fa-check-circle"></i> Gambar valid</p>
+        </div>
       </div>
       <button type="button" class="btn btn-primary" style="width:100%;justify-content:center" onclick="saveVehicle()">
         <i class="fas fa-save"></i> Simpan Kendaraan
@@ -2344,8 +2330,7 @@ async function adminLogin() {
 
 async function adminLogout() {
   // Hentikan real-time listener saat logout
-  if (window._unsubBookings) { window._unsubBookings(); window._unsubBookings = null; }
-  if (_unsubBookings) { _unsubBookings(); _unsubBookings = null; }
+  if (_unsubBookings) { _unsubBookings(); _unsubBookings = null; window._unsubBookings = null; }
   if (!window._firebase) {
     document.getElementById('admin-panel').style.display = 'none';
     return;
@@ -2708,27 +2693,32 @@ function renderRecentBookings() {
 // UPDATE BOOKING STATUS
 // ============================================
 async function updateBookingStatus(bookingId, status) {
+  const statusLabel = { pending: 'Menunggu', confirmed: 'Dikonfirmasi', cancelled: 'Dibatalkan' };
   try {
-    if (window._firebase) {
+    const isLocalOnly = isDemoId(bookingId) || bookingId.startsWith('CJT-');
+    if (window._firebase && !isLocalOnly) {
       const { db, doc, updateDoc } = window._firebase;
-      await updateDoc(doc(db, 'bookings', bookingId), { status, updated_at: new Date().toISOString() });
+      const dbTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout')), 8000));
+      await Promise.race([
+        updateDoc(doc(db, 'bookings', bookingId), { status, updated_at: new Date().toISOString() }),
+        dbTimeout
+      ]);
     }
-    // Update local state
     const idx = allBookings.findIndex(b => b.id === bookingId);
     if (idx !== -1) allBookings[idx].status = status;
-    // Update badge langsung tanpa re-render seluruh tabel
-    const badge = document.getElementById(`status-badge-${bookingId}`);
-    const statusLabel = { pending: 'Menunggu', confirmed: 'Dikonfirmasi', cancelled: 'Dibatalkan' };
+    const badge = document.getElementById('status-badge-' + bookingId);
     if (badge) {
-      badge.className = `status-badge status-${status}`;
+      badge.className = 'status-badge status-' + status;
       badge.textContent = statusLabel[status] || status;
     }
     updateDashboardStats();
     renderRecentBookings();
-    const icons = { pending: '⏳', confirmed: '✅', cancelled: '❌' };
-    showToast(`${icons[status] || '•'} Status diperbarui: ${statusLabel[status]}`, 'success');
+    const icons = { pending: '\u23f3', confirmed: '\u2705', cancelled: '\u274c' };
+    showToast((icons[status] || '\u2022') + ' Status: ' + (statusLabel[status] || status), 'success');
   } catch(e) {
-    showToast('Gagal update status: ' + e.message, 'error');
+    let msg = e.message || 'Error';
+    if (msg.includes('permission')) msg = '\u26d4 Akses ditolak! Periksa Firestore Rules.';
+    showToast('Gagal update status: ' + msg, 'error');
   }
 }
 
@@ -2736,10 +2726,11 @@ async function updateBookingStatus(bookingId, status) {
 // RESET ALL BOOKINGS (Hapus semua data booking)
 // ============================================
 async function resetAllBookings() {
-  if (!confirm('⚠️ PERHATIAN!\n\nIni akan menghapus SEMUA data booking dari database secara permanen.\n\nYakin ingin melanjutkan?')) return;
-  if (!confirm('🔴 Konfirmasi terakhir!\n\nSemua histori booking akan DIHAPUS dan tidak dapat dikembalikan.\n\nLanjutkan?')) return;
+  if (!confirm('\u26a0\ufe0f PERHATIAN!\n\nIni akan menghapus SEMUA data booking dari database secara permanen.\n\nYakin ingin melanjutkan?')) return;
+  if (!confirm('\ud83d\udd34 Konfirmasi terakhir!\n\nSemua histori booking akan DIHAPUS dan tidak dapat dikembalikan.\n\nLanjutkan?')) return;
 
   showLoading();
+  const safetyTimer = setTimeout(() => hideLoading(), 30000);
   console.log('[resetAllBookings] Memulai reset semua booking...');
 
   try {
@@ -2747,29 +2738,25 @@ async function resetAllBookings() {
       const { db, collection, getDocs, doc, deleteDoc } = window._firebase;
       const snap = await getDocs(collection(db, 'bookings'));
       const deletePromises = [];
-      snap.forEach(d => {
-        console.log('[resetAllBookings] Menghapus doc:', d.id);
-        deletePromises.push(deleteDoc(doc(db, 'bookings', d.id)));
-      });
+      snap.forEach(d => deletePromises.push(deleteDoc(doc(db, 'bookings', d.id))));
       await Promise.all(deletePromises);
-      console.log(`[resetAllBookings] ✅ Berhasil menghapus ${deletePromises.length} dokumen booking.`);
-      showToast(`✅ Reset selesai! ${deletePromises.length} data booking dihapus.`, 'success');
+      showToast('\u2705 Reset selesai! ' + deletePromises.length + ' data booking dihapus.', 'success');
     } else {
-      // Mode demo
       const count = allBookings.length;
       allBookings = [];
-      showToast(`Reset selesai! ${count} data booking dihapus (mode demo).`, 'success');
+      showToast('Reset selesai! ' + count + ' data booking dihapus (mode demo).', 'success');
     }
-
     allBookings = [];
     renderAdminBookings();
     renderRecentBookings();
     updateDashboardStats();
-
   } catch(e) {
-    console.error('[resetAllBookings] ❌ Error:', e.message);
-    showToast('Gagal reset data: ' + e.message, 'error');
+    console.error('[resetAllBookings] Error:', e.message);
+    let msg = e.message || 'Error';
+    if (msg.includes('permission')) msg = '\u26d4 Akses ditolak! Periksa Firestore Rules.';
+    showToast('Gagal reset data: ' + msg, 'error');
   } finally {
+    clearTimeout(safetyTimer);
     hideLoading();
   }
 }
@@ -2778,21 +2765,37 @@ async function resetAllBookings() {
 // DELETE BOOKING
 // ============================================
 async function deleteBooking(bookingId) {
-  if (!confirm('Hapus booking ini dari database?')) return;
+  if (!confirm('Hapus booking ini?')) return;
   showLoading();
+  const safetyTimer = setTimeout(() => hideLoading(), 10000);
   try {
-    if (window._firebase) {
+    // isDemoId juga tangkap ID yg diawali 'CJT-' namun tidak ada di Firestore — skip jika tidak ada di DB
+    const isLocalOnly = isDemoId(bookingId) || bookingId.startsWith('CJT-');
+    if (window._firebase && !isLocalOnly) {
       const { db, doc, deleteDoc } = window._firebase;
-      await deleteDoc(doc(db, 'bookings', bookingId));
+      const dbTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Database timeout')), 8000));
+      await Promise.race([deleteDoc(doc(db, 'bookings', bookingId)), dbTimeout]);
     }
     allBookings = allBookings.filter(b => b.id !== bookingId);
     renderAdminBookings();
     renderRecentBookings();
     updateDashboardStats();
-    showToast('Booking berhasil dihapus!', 'success');
+    showToast('\u2705 Booking berhasil dihapus!', 'success');
   } catch(e) {
-    showToast('Gagal hapus booking: ' + e.message, 'error');
+    let msg = e.message || 'Error';
+    if (msg.includes('permission')) msg = '\u26d4 Akses ditolak! Periksa Firestore Rules.';
+    if (msg.includes('No document')) {
+      // Dokumen tidak ada di Firestore, hapus local saja
+      allBookings = allBookings.filter(b => b.id !== bookingId);
+      renderAdminBookings();
+      renderRecentBookings();
+      updateDashboardStats();
+      showToast('\u2705 Booking dihapus dari daftar!', 'success');
+      return;
+    }
+    showToast('Gagal hapus booking: ' + msg, 'error');
   } finally {
+    clearTimeout(safetyTimer);
     hideLoading();
   }
 }
@@ -2804,7 +2807,8 @@ function openAddVehicle() {
   document.getElementById('vehicle-modal-title').textContent = '➕ Tambah Kendaraan';
   document.getElementById('vehicle-form').reset();
   document.getElementById('vehicle-edit-id').value = '';
-  document.getElementById('upload-preview').style.display = 'none';
+  document.getElementById('v-gambar-url').value = '';
+  document.getElementById('upload-preview-wrap').style.display = 'none';
   openModal('admin-vehicle-modal');
 }
 
@@ -2818,11 +2822,23 @@ function editVehicle(id) {
   document.getElementById('v-harga').value = v.harga_per_km;
   document.getElementById('v-tipe').value = v.tipe;
   document.getElementById('v-desc').value = v.desc || '';
+  const urlInput = document.getElementById('v-gambar-url');
+  urlInput.value = v.gambar || '';
   if (v.gambar) {
-    const prev = document.getElementById('upload-preview');
-    prev.src = v.gambar; prev.style.display = 'block';
+    previewImageUrl(v.gambar);
+  } else {
+    document.getElementById('upload-preview-wrap').style.display = 'none';
   }
   openModal('admin-vehicle-modal');
+}
+
+// ============================================
+// HELPER: Cek apakah ID adalah data demo (tidak ada di Firestore)
+// ============================================
+function isDemoId(id) {
+  if (!id) return false;
+  // ID demo: demo1-demo6, r1-r6, atau diawali 'demo_' / 'r_'
+  return /^(demo\d+|r\d+|demo_|r_)/.test(id);
 }
 
 async function saveVehicle() {
@@ -2831,58 +2847,54 @@ async function saveVehicle() {
   const harga = document.getElementById('v-harga').value;
   const tipe = document.getElementById('v-tipe').value;
   const desc = document.getElementById('v-desc').value.trim();
-  const fileInput = document.getElementById('v-gambar');
+  const gambarUrl = document.getElementById('v-gambar-url').value.trim();
   const editId = document.getElementById('vehicle-edit-id').value;
 
   if (!nama || !kapasitas || !harga) { showToast('Lengkapi semua field yang wajib!', 'error'); return; }
   if (parseInt(kapasitas) < 1) { showToast('Kapasitas harus minimal 1!', 'error'); return; }
   if (parseInt(harga) < 100) { showToast('Harga per km tidak valid!', 'error'); return; }
 
+  // Validasi URL gambar jika diisi
+  if (gambarUrl && !gambarUrl.startsWith('http')) {
+    showToast('URL gambar harus diawali dengan http:// atau https://', 'error'); return;
+  }
+
   showLoading();
+  const safetyTimer = setTimeout(() => hideLoading(), 10000);
   try {
-    let gambarUrl = '';
-
-    // Pertahankan gambar lama saat edit
-    if (editId) {
-      const existing = allVehicles.find(v => v.id === editId);
-      gambarUrl = existing?.gambar || '';
-    }
-
-    // Upload gambar baru jika ada
-    if (fileInput.files && fileInput.files[0] && window._firebase) {
-      try {
-        const { storage, ref, uploadBytes, getDownloadURL } = window._firebase;
-        const storageRef = ref(storage, `vehicles/${Date.now()}_${fileInput.files[0].name}`);
-        const snapshot = await uploadBytes(storageRef, fileInput.files[0]);
-        gambarUrl = await getDownloadURL(snapshot.ref);
-      } catch(uploadErr) {
-        console.warn('Upload gambar gagal:', uploadErr.message);
-        showToast('Upload gambar gagal, kendaraan disimpan tanpa gambar', 'error');
-      }
-    }
-
     const data = { nama, kapasitas: parseInt(kapasitas), harga_per_km: parseInt(harga), tipe, desc, gambar: gambarUrl };
 
     if (window._firebase) {
       const { db, collection, addDoc, doc, updateDoc } = window._firebase;
-      if (editId) {
-        await updateDoc(doc(db, 'vehicles', editId), data);
+      const dbTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Database timeout. Periksa koneksi internet.')), 8000));
+      // Jika editId ada dan BUKAN ID demo → update dokumen yg sudah ada di Firestore
+      if (editId && !isDemoId(editId)) {
+        await Promise.race([updateDoc(doc(db, 'vehicles', editId), data), dbTimeout]);
         const idx = allVehicles.findIndex(v => v.id === editId);
         if (idx !== -1) allVehicles[idx] = { id: editId, ...data };
-        showToast('✅ Kendaraan berhasil diperbarui!', 'success');
+        showToast('\u2705 Kendaraan berhasil diperbarui!', 'success');
       } else {
-        const docRef = await addDoc(collection(db, 'vehicles'), data);
-        allVehicles.push({ id: docRef.id, ...data });
-        showToast('✅ Kendaraan berhasil ditambahkan!', 'success');
+        // Tambah baru (termasuk saat edit data demo → simpan sebagai dokumen baru)
+        const docRef = await Promise.race([addDoc(collection(db, 'vehicles'), data), dbTimeout]);
+        if (editId) {
+          // Ganti entry demo di local state dengan ID Firestore yang baru
+          const idx = allVehicles.findIndex(v => v.id === editId);
+          if (idx !== -1) allVehicles[idx] = { id: docRef.id, ...data };
+          else allVehicles.push({ id: docRef.id, ...data });
+          showToast('\u2705 Kendaraan berhasil disimpan ke database!', 'success');
+        } else {
+          allVehicles.push({ id: docRef.id, ...data });
+          showToast('\u2705 Kendaraan berhasil ditambahkan!', 'success');
+        }
       }
     } else {
-      // Mode demo
-      const demoId = editId || `demo_${Date.now()}`;
+      // Mode offline/demo
       if (editId) {
         const idx = allVehicles.findIndex(v => v.id === editId);
         if (idx !== -1) allVehicles[idx] = { id: editId, ...data };
+        else allVehicles.push({ id: editId, ...data });
       } else {
-        allVehicles.push({ id: demoId, ...data });
+        allVehicles.push({ id: 'demo_' + Date.now(), ...data });
       }
       showToast('Kendaraan disimpan (mode demo)', 'success');
     }
@@ -2893,28 +2905,43 @@ async function saveVehicle() {
     updateDashboardStats();
   } catch(e) {
     console.error('saveVehicle error:', e);
-    showToast('Gagal menyimpan kendaraan: ' + e.message, 'error');
+    let msg = e.message || 'Error tidak diketahui';
+    if (msg.includes('permission') || (e.code && e.code.includes('permission'))) msg = '\u26d4 Akses ditolak! Periksa Firestore Rules koleksi "vehicles".';
+    if (msg.includes('timeout') || msg.includes('Timeout')) msg = '\u23f1\ufe0f ' + msg;
+    showToast('Gagal menyimpan: ' + msg, 'error');
   } finally {
+    clearTimeout(safetyTimer);
     hideLoading();
   }
 }
 
 async function deleteVehicle(id) {
-  if (!confirm('Hapus kendaraan ini dari database?')) return;
+  if (!confirm('Hapus kendaraan ini?')) return;
   showLoading();
+  const safetyTimer = setTimeout(() => hideLoading(), 10000);
   try {
-    if (window._firebase) {
+    if (window._firebase && !isDemoId(id)) {
+      // Hanya delete dari Firestore jika bukan ID demo
       const { db, doc, deleteDoc } = window._firebase;
-      await deleteDoc(doc(db, 'vehicles', id));
+      const dbTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Database timeout')), 8000));
+      await Promise.race([deleteDoc(doc(db, 'vehicles', id)), dbTimeout]);
     }
+    // Selalu hapus dari local state
     allVehicles = allVehicles.filter(v => v.id !== id);
     renderAdminVehicles();
     renderVehicles(allVehicles);
     updateDashboardStats();
-    showToast('✅ Kendaraan berhasil dihapus!', 'success');
+    showToast('\u2705 Kendaraan berhasil dihapus!', 'success');
   } catch(e) {
-    showToast('Gagal hapus kendaraan: ' + e.message, 'error');
+    let msg = e.message || 'Error';
+    if (msg.includes('permission')) msg = '\u26d4 Akses ditolak! Periksa Firestore Rules.';
+    showToast('Gagal hapus kendaraan: ' + msg, 'error');
+    // Tetap hapus dari local state meski Firestore gagal
+    allVehicles = allVehicles.filter(v => v.id !== id);
+    renderAdminVehicles();
+    renderVehicles(allVehicles);
   } finally {
+    clearTimeout(safetyTimer);
     hideLoading();
   }
 }
@@ -2949,25 +2976,35 @@ async function saveRoute() {
   if (parseInt(jarak) < 1) { showToast('Jarak harus lebih dari 0 km!', 'error'); return; }
 
   showLoading();
+  const safetyTimer = setTimeout(() => hideLoading(), 10000);
   const data = { nama_rute: nama, jarak: parseInt(jarak), harga: harga ? parseInt(harga) : 0 };
   try {
     if (window._firebase) {
       const { db, collection, addDoc, doc, updateDoc } = window._firebase;
-      if (editId) {
-        await updateDoc(doc(db, 'routes', editId), data);
+      const dbTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Database timeout. Periksa koneksi internet.')), 8000));
+      if (editId && !isDemoId(editId)) {
+        await Promise.race([updateDoc(doc(db, 'routes', editId), data), dbTimeout]);
         const idx = allRoutes.findIndex(r => r.id === editId);
         if (idx !== -1) allRoutes[idx] = { id: editId, ...data };
-        showToast('✅ Rute berhasil diperbarui!', 'success');
+        showToast('\u2705 Rute berhasil diperbarui!', 'success');
       } else {
-        const docRef = await addDoc(collection(db, 'routes'), data);
-        allRoutes.push({ id: docRef.id, ...data });
-        showToast('✅ Rute berhasil ditambahkan!', 'success');
+        const docRef = await Promise.race([addDoc(collection(db, 'routes'), data), dbTimeout]);
+        if (editId) {
+          const idx = allRoutes.findIndex(r => r.id === editId);
+          if (idx !== -1) allRoutes[idx] = { id: docRef.id, ...data };
+          else allRoutes.push({ id: docRef.id, ...data });
+          showToast('\u2705 Rute berhasil disimpan ke database!', 'success');
+        } else {
+          allRoutes.push({ id: docRef.id, ...data });
+          showToast('\u2705 Rute berhasil ditambahkan!', 'success');
+        }
       }
     } else {
       if (editId) {
         const idx = allRoutes.findIndex(r => r.id === editId);
         if (idx !== -1) allRoutes[idx] = { id: editId, ...data };
-      } else { allRoutes.push({ id: `r_${Date.now()}`, ...data }); }
+        else allRoutes.push({ id: editId, ...data });
+      } else { allRoutes.push({ id: 'r_' + Date.now(), ...data }); }
       showToast('Rute disimpan (mode demo)', 'success');
     }
     closeModal('admin-route-modal');
@@ -2976,46 +3013,66 @@ async function saveRoute() {
     populateRouteDropdown(allRoutes);
     updateDashboardStats();
   } catch(e) {
-    showToast('Gagal menyimpan rute: ' + e.message, 'error');
+    let msg = e.message || 'Error';
+    if (msg.includes('permission')) msg = '\u26d4 Akses ditolak! Periksa Firestore Rules koleksi "routes".';
+    if (msg.includes('timeout') || msg.includes('Timeout')) msg = '\u23f1\ufe0f ' + msg;
+    showToast('Gagal menyimpan rute: ' + msg, 'error');
   } finally {
+    clearTimeout(safetyTimer);
     hideLoading();
   }
 }
 
 async function deleteRoute(id) {
-  if (!confirm('Hapus rute ini dari database?')) return;
+  if (!confirm('Hapus rute ini?')) return;
   showLoading();
+  const safetyTimer = setTimeout(() => hideLoading(), 10000);
   try {
-    if (window._firebase) {
+    if (window._firebase && !isDemoId(id)) {
       const { db, doc, deleteDoc } = window._firebase;
-      await deleteDoc(doc(db, 'routes', id));
+      const dbTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Database timeout')), 8000));
+      await Promise.race([deleteDoc(doc(db, 'routes', id)), dbTimeout]);
     }
     allRoutes = allRoutes.filter(r => r.id !== id);
     renderAdminRoutes();
     renderRoutes(allRoutes);
     populateRouteDropdown(allRoutes);
     updateDashboardStats();
-    showToast('✅ Rute berhasil dihapus!', 'success');
+    showToast('\u2705 Rute berhasil dihapus!', 'success');
   } catch(e) {
-    showToast('Gagal hapus rute: ' + e.message, 'error');
+    let msg = e.message || 'Error';
+    if (msg.includes('permission')) msg = '\u26d4 Akses ditolak! Periksa Firestore Rules.';
+    showToast('Gagal hapus rute: ' + msg, 'error');
+    allRoutes = allRoutes.filter(r => r.id !== id);
+    renderAdminRoutes();
+    renderRoutes(allRoutes);
+    populateRouteDropdown(allRoutes);
   } finally {
+    clearTimeout(safetyTimer);
     hideLoading();
   }
 }
 
 // ============================================
-// IMAGE PREVIEW
+// IMAGE PREVIEW (dari URL)
 // ============================================
-function previewImage(input) {
+function previewImageUrl(url) {
+  const wrap = document.getElementById('upload-preview-wrap');
   const prev = document.getElementById('upload-preview');
-  if (input.files && input.files[0]) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      prev.src = e.target.result;
-      prev.style.display = 'block';
-    };
-    reader.readAsDataURL(input.files[0]);
+  const status = document.getElementById('preview-status');
+  if (!url || !url.startsWith('http')) {
+    wrap.style.display = 'none';
+    return;
   }
+  wrap.style.display = 'block';
+  prev.src = url;
+  if (status) { status.style.color = 'var(--text-muted)'; status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memuat preview...'; }
+  prev.onload = () => {
+    if (status) { status.style.color = 'var(--success)'; status.innerHTML = '<i class="fas fa-check-circle"></i> Gambar valid'; }
+  };
+  prev.onerror = () => {
+    if (status) { status.style.color = 'var(--danger)'; status.innerHTML = '<i class="fas fa-times-circle"></i> URL tidak valid atau gambar tidak dapat dimuat'; }
+  };
 }
 
 // ============================================
